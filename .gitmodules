@@ -1,0 +1,3 @@
+[submodule "thirdparty/GPU-NTT"]
+	path = thirdparty/GPU-NTT
+	url = https://github.com/Alisah-Ozcan/GPU-NTT.git

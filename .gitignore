@@ -1,0 +1,29 @@
+# CMake build and output files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+CTestTestfile.cmake
+
+# Output directories
+/bin/
+/build/
+/lib/
+/out/
+
+# Compiled source files
+*.o
+*.obj
+*.so
+*.a
+*.dll
+*.lib
+*.exe
+
+# IDE specific files
+.idea/
+.vscode/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.DS_Store
