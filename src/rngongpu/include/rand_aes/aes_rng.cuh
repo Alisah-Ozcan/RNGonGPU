@@ -5,9 +5,7 @@
 #ifndef AES_RNG_H
 #define AES_RNG_H
 
-#include "modular_arith.cuh"
 #include "aes.cuh"
-#include <random>
 
 namespace rngongpu
 {

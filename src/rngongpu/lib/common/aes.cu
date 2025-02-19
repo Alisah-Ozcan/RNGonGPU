@@ -10,6 +10,7 @@
 // Modifications by Alişah Özcan, 2025.
 
 #include "aes.cuh"
+#include <cmath>
 
 namespace rngongpu
 {
@@ -263,4 +264,33 @@ namespace rngongpu
         }
     }
 
+    __global__ void box_muller_u32(Data32* nums, f32* res, Data32 N) {
+        int tid = blockDim.x * blockIdx.x + threadIdx.x;
+        
+        if (2 * tid + 1 < N) {
+            f32 u1 = (float) nums[2 * tid] / MAX_U32;
+            f32 u2 = (float) nums[2 * tid + 1] / MAX_U32;
+    
+            double radius = std::sqrt(-2.0 * std::log(u1));
+            double theta = 2.0 * M_PI * u2;
+    
+            res[2 * tid] = radius * std::cos(theta);
+            res[2 * tid + 1] = radius * std::sin(theta);
+        }
+    }
+    
+    __global__ void box_muller_u64(Data64* nums, f64* res, Data32 N) {
+        int tid = blockDim.x * blockIdx.x + threadIdx.x;
+        
+        if (2 * tid + 1 < N) {
+            f64 u1 = (double) nums[2 * tid] / MAX_U64;
+            f64 u2 = (double) nums[2 * tid + 1] / MAX_U64;
+    
+            double radius = std::sqrt(-2.0 * std::log(u1));
+            double theta = 2.0 * M_PI * u2;
+    
+            res[2 * tid] = radius * std::cos(theta);
+            res[2 * tid + 1] = radius * std::sin(theta);
+        }
+    }
 } // namespace rngongpu

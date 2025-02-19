@@ -4,19 +4,25 @@
 
 #include "aes_rng.cuh"
 #include "cuda_rng.cuh"
+#include "normal_rng.cuh"
+#include "aes.cuh"
+#include "base_rng.cuh"
 #include <iostream>
 
 using namespace std;
 
 int main(int argc, char* argv[])
 {
-    cout << "TEST HERE!" << endl;
-    rngongpu::test_aes();
+    rngongpu::NormalRNG* rng = new rngongpu::NormalRNG();
 
-    Modulus32 mert(15);
-    cout << mert.value << endl;
-    cout << mert.mu << endl;
-    cout << mert.bit << endl;
+    f64* d_res, *h_res;
+    cudaMalloc(&d_res, 4096 * sizeof(f64));
+    rng -> gen_random_f64(4096, d_res);
+
+    h_res = new f64[4096];
+    cudaMemcpy(h_res, d_res, 4096 * sizeof(f64), cudaMemcpyDeviceToHost);
+
+    for (int i = 0; i <= 4092; i+=4) printf("%.6f %.6f %.6f %.6f\n", h_res[i], h_res[i+1], h_res[i+2], h_res[i+3]);
 
     return EXIT_SUCCESS;
 }

@@ -4,6 +4,7 @@
 
 #include "aes_rng.cuh"
 #include "base_rng.cuh"
+#include <random>
 
 namespace rngongpu
 {
@@ -100,7 +101,7 @@ namespace rngongpu
 
         printf("N: %u, range: %llu, BLOCKS: %u, THREADS: %u\n", num_u64, *range, BLOCKS, THREADS);
         printf("Calling kernel to generate %u numbers, range: %llu\n", num_u64, *range);
-        counterWithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBoxCihangir << <BLOCKS, THREADS >> > (this -> d_nonce, this -> roundKeys, this -> t0, this -> t4, range, this -> SAES_d, res, num_u64);
+        counterWithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBoxCihangir<<<BLOCKS, THREADS>>>(this -> d_nonce, this -> roundKeys, this -> t0, this -> t4, range, this -> SAES_d, res, num_u64);
         cudaDeviceSynchronize();
         //printLastCUDAError();
 
