@@ -22,6 +22,9 @@
 typedef unsigned char Data8;
 typedef unsigned short Data16;
 
+typedef float f32;
+typedef double f64;
+
 #define SHARED_MEM_BANK_SIZE 32
 #define S_BOX_BANK_SIZE 8
 #define TABLE_SIZE 256

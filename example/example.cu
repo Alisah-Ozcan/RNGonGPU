@@ -7,12 +7,11 @@
 #include <iostream>
 
 using namespace std;
-using namespace rngongpu;
 
 int main(int argc, char* argv[])
 {
     cout << "TEST HERE!" << endl;
-    test_aes();
+    rngongpu::test_aes();
 
     Modulus32 mert(15);
     cout << mert.value << endl;
