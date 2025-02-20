@@ -13,7 +13,7 @@
 #define BLOCKS 4
 
 namespace rngongpu {
-    class UniformRNG : public BaseRNG {
+    class UniformRNG : public BaseRNG_AES {
         private:
             void initState() override;
         public:

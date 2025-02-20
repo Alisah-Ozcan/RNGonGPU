@@ -9,7 +9,7 @@
 #include "aes_rng.cuh"
 
 namespace rngongpu {
-    class NormalRNG : public BaseRNG {
+    class NormalRNG : public BaseRNG_AES {
         private:
             void initState() override;
         public:

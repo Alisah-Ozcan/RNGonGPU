@@ -10,7 +10,7 @@
 namespace rngongpu
 {
     void test_aes();
-    class BaseRNG {
+    class BaseRNG_AES {
         private:
             Data32* seed;
             Data32* nonce;
@@ -30,7 +30,7 @@ namespace rngongpu
             // using BLOCKS blocks with THREADS threads each.
             void gen_random_bytes(int N, int BLOCKS, int THREADS, Data64* res);
         public:
-            BaseRNG();
+            BaseRNG_AES();
     
             // tune the object for desired output in the next function call 
             // ex: set the stddev and mean for Normal distribution objects
@@ -45,7 +45,7 @@ namespace rngongpu
             virtual void gen_random_f32(int N, f32* res) = 0;
             virtual void gen_random_f64(int N, f64* res) = 0;
     
-            ~BaseRNG();
+            ~BaseRNG_AES();
     };
 } // namespace rngongpu
 

@@ -11,7 +11,7 @@ namespace rngongpu
     void test_aes() {
         std::cout << "TEST SUCCESS\n";
     }
-    void BaseRNG::init() {
+    void BaseRNG_AES::init() {
         this -> seed = new Data32[4];
         this -> nonce = new Data32[4];
         std::random_device rd;
@@ -77,8 +77,8 @@ namespace rngongpu
         keyExpansion(this -> seed, this -> roundKeys);
         initState();
     }
-    void BaseRNG::initState() {}
-    void BaseRNG::increment_nonce(Data32 N) {
+    void BaseRNG_AES::initState() {}
+    void BaseRNG_AES::increment_nonce(Data32 N) {
         if (this -> nonce[3] + N < this -> nonce[3]) {
             this -> nonce[2] += 1;
         }
@@ -89,7 +89,7 @@ namespace rngongpu
 
     // generate random bits on the device. Write N bytes to res 
     // using BLOCKS blocks with THREADS threads each.
-    void BaseRNG::gen_random_bytes(int N, int BLOCKS, int THREADS, Data64* res) {
+    void BaseRNG_AES::gen_random_bytes(int N, int BLOCKS, int THREADS, Data64* res) {
         int num_u64 = (N + 7) / 8;
         // Calculate the range for each thread
         Data64* range;
@@ -110,7 +110,7 @@ namespace rngongpu
 
         this -> increment_nonce(num_u64 + 1 / 2);
     }
-    BaseRNG::BaseRNG() : seed(nullptr), nonce(nullptr) {this -> init();}
+    BaseRNG_AES::BaseRNG_AES() : seed(nullptr), nonce(nullptr) {this -> init();}
 
     // tune the object for desired output in the next function call 
     // ex: set the stddev and mean for Normal distribution objects
@@ -125,7 +125,7 @@ namespace rngongpu
     // virtual void gen_random_f32(int N, f32* res) = 0;
     // virtual void gen_random_f64(int N, f64* res) = 0;
 
-    BaseRNG::~BaseRNG() {
+    BaseRNG_AES::~BaseRNG_AES() {
         cudaFree(this -> t0);
         cudaFree(this -> t1);
         cudaFree(this -> t2);
