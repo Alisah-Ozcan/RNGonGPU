@@ -594,6 +594,15 @@ namespace rngongpu
     __global__ void box_muller_u32(Data32* nums, f32* res, Data32 N);
     
     __global__ void box_muller_u64(Data64* nums, f64* res, Data32 N);
+
+
+    __global__ void mod_reduce_u64(Data64* nums, Modulus64* p, Data32 N);
+
+    __global__ void mod_reduce_u64(Data64* nums, Modulus64* p, Data32 p_N, Data32 N);
+
+    __global__ void mod_reduce_u32(Data32* nums, Modulus32* p, Data32 p_N, Data32 N);
+
+    __global__ void mod_reduce_u32(Data32* nums, Modulus32* p, Data32 N);
 } // namespace rngongpu
 
 #endif // AES_H

@@ -12,11 +12,11 @@ namespace rngongpu {
         void NormalRNG::initState() {}
         NormalRNG::NormalRNG() {}
         void NormalRNG::gen_random_u32(int N, Data32* res) {}
-        void NormalRNG::gen_random_u32_mod_p(int N, Data32 p, Data32* res) {}
-        void NormalRNG::gen_random_u32_mod_p(int N, Data32* p, Data32 p_num, Data32* res) {}
+        void NormalRNG::gen_random_u32_mod_p(int N, Modulus32* p, Data32* res) {}
+        void NormalRNG::gen_random_u32_mod_p(int N, Modulus32* p, Data32 p_num, Data32* res) {}
         void NormalRNG::gen_random_u64(int N, Data64* res) {}
-        void NormalRNG::gen_random_u64_mod_p(int N, Data64 p, Data64* res) {}
-        void NormalRNG::gen_random_u64_mod_p(int N, Data64* p, Data32 p_num, Data64* res) {}
+        void NormalRNG::gen_random_u64_mod_p(int N, Modulus64* p, Data64* res) {}
+        void NormalRNG::gen_random_u64_mod_p(int N, Modulus64* p, Data32 p_num, Data64* res) {}
         void NormalRNG::gen_random_f32(int N, f32* res) {
             Data64* res_u64;
             int num_u32 = (N + 1) / 2;
