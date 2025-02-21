@@ -8,35 +8,33 @@
 
 namespace rngongpu
 {
-    void test_aes() {
-        std::cout << "TEST SUCCESS\n";
-    }
     void BaseRNG_AES::init() {
-        this -> seed = new Data32[4];
-        this -> nonce = new Data32[4];
+        this -> seed = new Data32[8];
+
         std::random_device rd;
         std::mt19937_64 gen(rd());
         std::uniform_int_distribution<Data32> dist(0, std::numeric_limits<Data32>::max());
         
-        this -> seed[0] = dist(gen);
-        this -> seed[1] = dist(gen);
-        this -> seed[2] = dist(gen);
-        this -> seed[3] = dist(gen); 
+        for (int i = 0; i < 8; i++) this -> seed[i] = dist(gen);
 
-        this -> nonce[0] = dist(gen);
-        this -> nonce[1] = dist(gen);
-        this -> nonce[2] = dist(gen);
-        this -> nonce[3] = dist(gen);
+        // Results of Block_Encrypt(0, 1) and Block_Encrypt(0, 2)
+        Data32 temp[8];
+        temp[0] = 0x58E2FCCE;
+        temp[1] = 0xFA7E3061;
+        temp[2] = 0x367F1D57;
+        temp[3] = 0xA4E7455A;
+        temp[4] = 0x0388DACE;
+        temp[5] = 0x60B6A392;
+        temp[6] = 0xF328C2B9;
+        temp[7] = 0x71B2FE78;
 
-        // this -> nonce[0] = 0x3243F6A8U;
-        // this -> nonce[1] = 0x885A308DU;
-        // this -> nonce[2] = 0x313198A2U;
-        // this -> nonce[3] = 0x00000000U;
+        this -> key = new Data32[4];
+        this -> nonce = new Data32[4];
 
-        // this -> seed[0] = 0x2B7E1516U;
-        // this -> seed[1] = 0x28AED2A6U;
-        // this -> seed[2] = 0xABF71588U;
-        // this -> seed[3] = 0x09CF4F3CU;
+        for (int i = 0; i < 4; i++) {
+            this -> key[i] = temp[i] ^ seed[i];
+            this -> nonce[i] = temp[i] ^ seed[i+4];
+        }
 
         // Allocate RCON values
         RNGONGPU_CUDA_CHECK(cudaMallocManaged(&(this -> rcon), RCON_SIZE * sizeof(Data32)));
@@ -74,7 +72,7 @@ namespace rngongpu
         cudaMemcpy(this -> d_nonce, this -> nonce, 4 * sizeof(Data32), cudaMemcpyHostToDevice);
 
         // Key expansion
-        keyExpansion(this -> seed, this -> roundKeys);
+        keyExpansion(this -> key, this -> roundKeys);
         initState();
     }
     void BaseRNG_AES::initState() {}
@@ -110,7 +108,7 @@ namespace rngongpu
 
         this -> increment_nonce(num_u64 + 1 / 2);
     }
-    BaseRNG_AES::BaseRNG_AES() : seed(nullptr), nonce(nullptr) {this -> init();}
+    BaseRNG_AES::BaseRNG_AES() : seed(nullptr), nonce(nullptr), key(nullptr) {this -> init();}
 
     // tune the object for desired output in the next function call 
     // ex: set the stddev and mean for Normal distribution objects

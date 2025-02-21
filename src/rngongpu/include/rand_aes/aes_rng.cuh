@@ -9,13 +9,16 @@
 
 namespace rngongpu
 {
-    void test_aes();
     class BaseRNG_AES {
         private:
+            // Working state fields
             Data32* seed;
-            Data32* nonce;
+            Data32* key;
+            Data32* nonce; //The V in SP800-90.
+            
+            //AES-128 relevant fields
             Data32 *t0, *t1, *t2, *t3, *t4, *t4_0, *t4_1, *t4_2, *t4_3;
-            Data8* SAES_d; // Cihangir
+            Data8* SAES_d;
             Data32* rcon;
             Data32* roundKeys;
             Data32* d_nonce;
