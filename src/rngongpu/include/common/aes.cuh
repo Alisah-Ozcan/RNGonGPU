@@ -22,6 +22,9 @@
 typedef unsigned char Data8;
 typedef unsigned short Data16;
 
+typedef float f32;
+typedef double f64;
+
 #define SHARED_MEM_BANK_SIZE 32
 #define S_BOX_BANK_SIZE 8
 #define TABLE_SIZE 256
@@ -588,6 +591,18 @@ namespace rngongpu
         Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64* range,
         Data8* SAES, Data64* rng_res, Data32 N);
 
+    __global__ void box_muller_u32(Data32* nums, f32* res, Data32 N);
+    
+    __global__ void box_muller_u64(Data64* nums, f64* res, Data32 N);
+
+
+    __global__ void mod_reduce_u64(Data64* nums, Modulus64* p, Data32 N);
+
+    __global__ void mod_reduce_u64(Data64* nums, Modulus64* p, Data32 p_N, Data32 N);
+
+    __global__ void mod_reduce_u32(Data32* nums, Modulus32* p, Data32 p_N, Data32 N);
+
+    __global__ void mod_reduce_u32(Data32* nums, Modulus32* p, Data32 N);
 } // namespace rngongpu
 
 #endif // AES_H
