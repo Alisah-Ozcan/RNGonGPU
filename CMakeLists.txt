@@ -11,6 +11,15 @@ set(BINARY_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/bin)
 set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+find_package(OpenSSL)
+if(NOT OPENSSL_FOUND)
+    message(FATAL_ERROR "OpenSSL not found on the system.
+Please install OpenSSL.
+For example, on Ubuntu run:
+    sudo apt-get install libssl-dev
+or refer to https://www.openssl.org for more instructions.")
+endif()
+
 find_package(CUDAToolkit REQUIRED)
 
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)

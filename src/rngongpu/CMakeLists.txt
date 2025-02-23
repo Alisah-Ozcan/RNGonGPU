@@ -8,9 +8,11 @@ file(GLOB_RECURSE LIB_SOURCE_FILES
     CONFIGURE_DEPENDS
     lib/common/*.cu
     lib/rand_aes/*.cu
+    lib/rand_aes_cpu/*.cu
     lib/rand_cuda/*.cu
     lib/common/*.cpp
     lib/rand_aes/*.cpp
+    lib/rand_aes_cpu/*.cpp
     lib/rand_cuda/*.cpp
 )
 
@@ -19,9 +21,11 @@ file(GLOB_RECURSE LIB_HEADER_FILES
     CONFIGURE_DEPENDS
     include/common/*.cuh
     include/rand_aes/*.cuh
+    include/rand_aes_cpu/*.cuh
     include/rand_cuda/*.cuh
     include/common/*.h
     include/rand_aes/*.h
+    include/rand_aes_cpu/*.h
     include/rand_cuda/*.h
 )
 
@@ -30,6 +34,8 @@ add_library(rngongpu STATIC ${LIB_SOURCE_FILES})
 target_link_libraries(rngongpu PUBLIC 
     ntt
     CUDA::curand
+    OpenSSL::SSL
+    OpenSSL::Crypto
 )
 
 set_target_properties(rngongpu PROPERTIES
@@ -45,5 +51,7 @@ target_include_directories(
     PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/common>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/rand_aes>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/rand_aes_cpu>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/rand_cuda>
+    PRIVATE ${OPENSSL_INCLUDE_DIR}
 )

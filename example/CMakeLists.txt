@@ -7,6 +7,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BINARY_LOCATION}/example)
 
 set(EXECUTABLES
     example example.cu
+    example_cpu example_cpu.cu
 )
 
 function(add_example exe source)
