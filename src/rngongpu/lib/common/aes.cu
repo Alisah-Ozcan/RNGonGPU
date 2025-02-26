@@ -29,13 +29,13 @@ namespace rngongpu
     }
 
     // Key expansion from given key set, populate rk[44]
-    __host__ void keyExpansion(Data32* key, Data32* rk)
+    __host__ void keyExpansion(std::vector<unsigned char> key, Data32* rk)
     {
         Data32 rk0, rk1, rk2, rk3;
-        rk0 = key[0];
-        rk1 = key[1];
-        rk2 = key[2];
-        rk3 = key[3];
+        rk0 = (key[0] << 24) | (key[1] << 16) | (key[2] << 8) | key[3];
+        rk1 = (key[4] << 24) | (key[5] << 16) | (key[6] << 8) | key[7];
+        rk2 = (key[8] << 24) | (key[9] << 16) | (key[10] << 8) | key[11];
+        rk3 = (key[12] << 24) | (key[13] << 16) | (key[14] << 8) | key[15];
 
         rk[0] = rk0;
         rk[1] = rk1;

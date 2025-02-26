@@ -6,15 +6,25 @@
 #define AES_RNG_H
 
 #include "aes.cuh"
+#include <openssl/evp.h>
+#include <vector>
 
 namespace rngongpu
 {
     class AES_RNG {
         private:
             // Working state fields
-            Data32* seed;
-            Data32* key;
-            Data32* nonce; //The V in SP800-90.
+            std::vector<unsigned char> seed;
+            std::vector<unsigned char> key;
+            std::vector<unsigned char> nonce; //The V in SP800-90.
+
+            bool isPredictionResistanceEnabled;
+
+            // NIST SP 800‑90A recommends that the number of blocks generated before a reseed be limited.
+            const Data64 RESEED_INTERVAL = (1ULL << 48);
+            const Data32 MAX_BYTES_PER_REQUEST = 1 << 19;
+            const std::size_t securityLevel = 128;
+            Data64 reseedCounter;
             
             //AES-128 relevant fields
             Data32 *t0, *t1, *t2, *t3, *t4, *t4_0, *t4_1, *t4_2, *t4_3;
@@ -24,18 +34,18 @@ namespace rngongpu
             Data32* d_nonce;
     
             void init();
-            virtual void initState();
             void increment_nonce(Data32 N);
+            void update(std::vector<unsigned char> additionalInput);
+            void resetReseedCounter();
     
             // generate random bits on the device. Write N bytes to res 
             // using BLOCKS blocks with THREADS threads each.
             void gen_random_bytes(int N, int nBLOCKS, int nTHREADS, Data64* res);
         public:
-            AES_RNG();
-    
-            // tune the object for desired output in the next function call 
-            // ex: set the stddev and mean for Normal distribution objects
-            // virtual void set_state() = 0;
+            //Potential additional input?
+            void reseed(std::vector<unsigned char>);
+            void printWorkingState();
+            AES_RNG(bool _isPredictionResistanceEnabled);
     
             void gen_random_u32(int N, Data32* res);
             void gen_random_u32_mod_p(int N, Modulus32* p, Data32* res);

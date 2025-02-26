@@ -584,7 +584,7 @@ namespace rngongpu
     __device__ Data32 arithmeticRightShiftBytePerm(Data32 x, Data32 n);
 
     // Key expansion from given key set, populate rk[44]
-    __host__ void keyExpansion(Data32* key, Data32* rk);
+    __host__ void keyExpansion(std::vector<unsigned char> key, Data32* rk);
 
     __global__ void
     counterWithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBoxCihangir(
