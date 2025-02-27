@@ -7,130 +7,37 @@
 
 #include <string>
 #include "aes.cuh"
-#include "cuda_rng_kernels.cuh"  // Contains kernel declarations.
+#include "cuda_rng_kernels.cuh"  
 #include <curand_kernel.h>
 
 namespace rngongpu {
 
-//---------------------------------------------------------------------
-// Generator type structs for different RNG generators
-//---------------------------------------------------------------------
-
-
-struct XORWOW_generator {
-    using StateType = curandStateXORWOW_t;
-    
-    static void initStates(StateType* states, unsigned long long seed, int numStates, int threadsPerBlock) {
-        int blocks = (numStates + threadsPerBlock - 1) / threadsPerBlock;
-        init_xorwow_states<<<blocks, threadsPerBlock>>>(states, seed);
-    }
-    
-    static void generate_u32(StateType* states, Data32* res, int N, int threadsPerBlock) {
-        int blocks = (N + threadsPerBlock - 1) / threadsPerBlock;
-        generate_random_xorwow<<<blocks, threadsPerBlock>>>(states, res, N);
-    }
-    
-    static void generate_u64(StateType* states, Data64* res, int N, int threadsPerBlock) {
-        int blocks = (N + threadsPerBlock - 1) / threadsPerBlock;
-        generate_random_xorwow_64<<<blocks, threadsPerBlock>>>(states, res, N);
-    }
-    
-    static void generate_f32(StateType* states, f32* res, int N, int threadsPerBlock) {
-        int blocks = (N + threadsPerBlock - 1) / threadsPerBlock;
-        generate_random_xorwow_normal<<<blocks, threadsPerBlock>>>(states, res, N);
-    }
-    
-    static void generate_f64(StateType* states, f64* res, int N, int threadsPerBlock) {
-        int blocks = (N + threadsPerBlock - 1) / threadsPerBlock;
-        generate_random_xorwow_normal_64<<<blocks, threadsPerBlock>>>(states, res, N);
-    }
-};
-
-
-struct MRG32k3a_generator {
-    using StateType = curandStateMRG32k3a_t;
-    
-    static void initStates(StateType* states, unsigned long long seed, int numStates, int threadsPerBlock) {
-        int blocks = (numStates + threadsPerBlock - 1) / threadsPerBlock;
-        init_mrg32k3a_states<<<blocks, threadsPerBlock>>>(states, seed);
-    }
-    
-    static void generate_u32(StateType* states, Data32* res, int N, int threadsPerBlock) {
-        int blocks = (N + threadsPerBlock - 1) / threadsPerBlock;
-        generate_random_mrg32k3a<<<blocks, threadsPerBlock>>>(states, res, N);
-    }
-    
-    static void generate_u64(StateType* states, Data64* res, int N, int threadsPerBlock) {
-        int blocks = (N + threadsPerBlock - 1) / threadsPerBlock;
-        generate_random_mrg32k3a_64<<<blocks, threadsPerBlock>>>(states, res, N);
-    }
-    
-    static void generate_f32(StateType* states, f32* res, int N, int threadsPerBlock) {
-        int blocks = (N + threadsPerBlock - 1) / threadsPerBlock;
-        generate_random_mrg32k3a_normal<<<blocks, threadsPerBlock>>>(states, res, N);
-    }
-    
-    static void generate_f64(StateType* states, f64* res, int N, int threadsPerBlock) {
-        int blocks = (N + threadsPerBlock - 1) / threadsPerBlock;
-        generate_random_mrg32k3a_normal_64<<<blocks, threadsPerBlock>>>(states, res, N);
-    }
-};
-
-
-struct Philox_generator {
-    using StateType = curandStatePhilox4_32_10_t;
-    
-    static void initStates(StateType* states, unsigned long long seed, int numStates, int threadsPerBlock) {
-        int blocks = (numStates + threadsPerBlock - 1) / threadsPerBlock;
-        init_philox_states<<<blocks, threadsPerBlock>>>(states, seed);
-    }
-    
-    static void generate_u32(StateType* states, Data32* res, int N, int threadsPerBlock) {
-        int blocks = (N + threadsPerBlock - 1) / threadsPerBlock;
-        generate_random_philox<<<blocks, threadsPerBlock>>>(states, res, N);
-    }
-    
-    static void generate_u64(StateType* states, Data64* res, int N, int threadsPerBlock) {
-        int blocks = (N + threadsPerBlock - 1) / threadsPerBlock;
-        generate_random_philox_64<<<blocks, threadsPerBlock>>>(states, res, N);
-    }
-    
-    static void generate_f32(StateType* states, f32* res, int N, int threadsPerBlock) {
-        int blocks = (N + threadsPerBlock - 1) / threadsPerBlock;
-        generate_random_philox_normal<<<blocks, threadsPerBlock>>>(states, res, N);
-    }
-    
-    static void generate_f64(StateType* states, f64* res, int N, int threadsPerBlock) {
-        int blocks = (N + threadsPerBlock - 1) / threadsPerBlock;
-        generate_random_philox_normal_64<<<blocks, threadsPerBlock>>>(states, res, N);
-    }
-};
-
-//---------------------------------------------------------------------
-// Templated RNG class that uses a generator struct to define generator-specific behavior.
-//---------------------------------------------------------------------
-
-template <typename generator>
+// CudarandRNG is a templated class for GPU-based random number generation.
+// It initializes a set of RNG states on the device and provides methods
+// to generate uniform and normal random numbers as well as modulo-reduced variants.
+template <typename RNGState>
 class CudarandRNG {
 private:
-    using StateType = typename generator::StateType;
-
-    // Initializes the states using the generator-specific kernel.
+    // Initializes the RNG states on the GPU using the init_states kernel.
     void initState();
 
-    // The base seed used to initialize all the states.
-    unsigned long long baseSeed;
+    // Base seed used to initialize all RNG states.
+    Data64 baseSeed;
 
-    // Device pointer to the generator states.
+    
     void* d_states;
 
-    // Number of states to allocate.
+   
     int numStates;
 
+    // (Optional) Additional state count (e.g., for MTGP32 variants).
+    int mtgp32_numStates;
 
 public:
     // Constructs the RNG with a given seed.
-    explicit CudarandRNG(unsigned long long seed);
+    explicit CudarandRNG(Data64 seed);
+
+    // Destructor: frees allocated device memory.
     ~CudarandRNG();
 
     // Generates N random 32-bit unsigned integers.
@@ -139,20 +46,22 @@ public:
     // Generates N random 64-bit unsigned integers.
     void gen_random_u64(int N, Data64* res);
 
-    // Generates N random 32-bit floating-point numbers (f32).
+    // Generates N random 32-bit floating-point (normal distribution) numbers.
     void gen_random_f32(int N, f32* res);
 
-    // Generates N random 64-bit floating-point numbers (f64).
+    // Generates N random 64-bit floating-point (normal distribution) numbers.
     void gen_random_f64(int N, f64* res);
 
     // Generates N random 32-bit unsigned integers modulo a given modulus.
     void gen_random_u32_mod_p(int N, Modulus32* p, Data32* res);
+
     // Generates N random 32-bit unsigned integers modulo a given modulus,
     // using an extra parameter (p_num).
     void gen_random_u32_mod_p(int N, Modulus32* p, Data32 p_num, Data32* res);
 
     // Generates N random 64-bit unsigned integers modulo a given modulus.
     void gen_random_u64_mod_p(int N, Modulus64* p, Data64* res);
+
     // Generates N random 64-bit unsigned integers modulo a given modulus,
     // using an extra parameter (p_num).
     void gen_random_u64_mod_p(int N, Modulus64* p, Data32 p_num, Data64* res);
@@ -160,7 +69,6 @@ public:
 
 } // namespace rngongpu
 
-// Include the template implementation if separated (alternatively, you could define these inline)
 
 
 #endif // CUDA_RNG_H

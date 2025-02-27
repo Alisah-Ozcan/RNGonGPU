@@ -3,79 +3,35 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "cuda_rng_kernels.cuh"
-#include <cassert>
-#include <exception>
-#include <iostream>
-#include <string>
-#include <cuda_runtime.h>
 #include <curand_kernel.h>
-#include <curand_mtgp32_host.h>
-#include <curand_mtgp32dc_p_11213.h>
-
-
-
-
-
-
 
 namespace rngongpu {
 
+//======================================================================
+// Configuration Constants Definitions
+//======================================================================
+const int BLOCKS            = 24;
+const int THREADS_PER_BLOCK = 256;
+const int TOTAL_THREADS     = BLOCKS * THREADS_PER_BLOCK;
 
-// Initialization Kernels
 
 
-__global__ void init_xorwow_states(curandStateXORWOW_t *states, unsigned long long baseSeed) {
+
+
+template <typename RNGState>
+__global__ void init_states(RNGState *states, Data64 baseSeed) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid < TOTAL_THREADS) {
         curand_init(baseSeed + tid, 0, 0, &states[tid]);
     }
 }
 
-__global__ void init_mrg32k3a_states(curandStateMRG32k3a_t *states, unsigned long long baseSeed) {
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid < TOTAL_THREADS) {
-        curand_init(baseSeed + tid, 0, 0, &states[tid]);
-    }
-}
 
-__global__ void init_philox_states(curandStatePhilox4_32_10_t *states, unsigned long long baseSeed) {
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid < TOTAL_THREADS) {
-        curand_init(baseSeed + tid, 0, 0, &states[tid]);
-    }
-}
-
-
-// Uniform Generation Kernels (32-bit)
-
-
-__global__ void generate_random_xorwow(curandStateXORWOW_t *states,
-                                       Data32 *random_numbers, int n) {
+template <typename RNGState>
+__global__ void generate_uniform_32(RNGState *states, Data32 *random_numbers, int n) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid >= TOTAL_THREADS) return;
-    curandStateXORWOW_t localState = states[tid];
-    for (int idx = tid; idx < n; idx += TOTAL_THREADS) {
-        random_numbers[idx] = curand(&localState);
-    }
-    states[tid] = localState;
-}
-
-__global__ void generate_random_mrg32k3a(curandStateMRG32k3a_t *states,
-                                         Data32 *random_numbers, int n) {
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid >= TOTAL_THREADS) return;
-    curandStateMRG32k3a_t localState = states[tid];
-    for (int idx = tid; idx < n; idx += TOTAL_THREADS) {
-        random_numbers[idx] = curand(&localState);
-    }
-    states[tid] = localState;
-}
-
-__global__ void generate_random_philox(curandStatePhilox4_32_10_t *states,
-                                         Data32 *random_numbers, int n) {
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid >= TOTAL_THREADS) return;
-    curandStatePhilox4_32_10_t localState = states[tid];
+    RNGState localState = states[tid];
     for (int idx = tid; idx < n; idx += TOTAL_THREADS) {
         random_numbers[idx] = curand(&localState);
     }
@@ -83,84 +39,26 @@ __global__ void generate_random_philox(curandStatePhilox4_32_10_t *states,
 }
 
 
-// Uniform Generation Kernels (64-bit)
-
-
-__global__ void generate_random_xorwow_64(curandStateXORWOW_t *states,
-                                          Data64 *random_numbers, int n) {
+template <typename RNGState>
+__global__ void generate_uniform_64(RNGState *states, Data64 *random_numbers, int n) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid >= TOTAL_THREADS) return;
-    curandStateXORWOW_t localState = states[tid];
+    RNGState localState = states[tid];
     for (int idx = tid; idx < n; idx += TOTAL_THREADS) {
         unsigned int r1 = curand(&localState);
         unsigned int r2 = curand(&localState);
-        unsigned long long merged =
-            (static_cast<unsigned long long>(r1) << 32) | (static_cast<unsigned long long>(r2) & 0xffffffffULL);
-        random_numbers[idx] = merged;
+        random_numbers[idx] =
+            (static_cast<Data64>(r1) << 32) |
+            (static_cast<Data64>(r2) & 0xffffffffULL);
     }
     states[tid] = localState;
 }
 
-__global__ void generate_random_mrg32k3a_64(curandStateMRG32k3a_t *states,
-                                            Data64 *random_numbers, int n) {
+template <typename RNGState>
+__global__ void generate_normal_32(RNGState *states, f32 *random_numbers, int n) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid >= TOTAL_THREADS) return;
-    curandStateMRG32k3a_t localState = states[tid];
-    for (int idx = tid; idx < n; idx += TOTAL_THREADS) {
-        unsigned int r1 = curand(&localState);
-        unsigned int r2 = curand(&localState);
-        unsigned long long merged =
-            (static_cast<unsigned long long>(r1) << 32) | (static_cast<unsigned long long>(r2) & 0xffffffffULL);
-        random_numbers[idx] = merged;
-    }
-    states[tid] = localState;
-}
-
-__global__ void generate_random_philox_64(curandStatePhilox4_32_10_t *states,
-                                          Data64 *random_numbers, int n) {
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid >= TOTAL_THREADS) return;
-    curandStatePhilox4_32_10_t localState = states[tid];
-    for (int idx = tid; idx < n; idx += TOTAL_THREADS) {
-        unsigned int r1 = curand(&localState);
-        unsigned int r2 = curand(&localState);
-        unsigned long long merged =
-            (static_cast<unsigned long long>(r1) << 32) | (static_cast<unsigned long long>(r2) & 0xffffffffULL);
-        random_numbers[idx] = merged;
-    }
-    states[tid] = localState;
-}
-
-// Normal Generation Kernels (32-bit) using curand_normal
-
-
-__global__ void generate_random_xorwow_normal(curandStateXORWOW_t *states,
-                                              f32 *random_numbers, int n) {
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid >= TOTAL_THREADS) return;
-    curandStateXORWOW_t localState = states[tid];
-    for (int idx = tid; idx < n; idx += TOTAL_THREADS) {
-        random_numbers[idx] = curand_normal(&localState);
-    }
-    states[tid] = localState;
-}
-
-__global__ void generate_random_mrg32k3a_normal(curandStateMRG32k3a_t *states,
-                                                f32 *random_numbers, int n) {
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid >= TOTAL_THREADS) return;
-    curandStateMRG32k3a_t localState = states[tid];
-    for (int idx = tid; idx < n; idx += TOTAL_THREADS) {
-        random_numbers[idx] = curand_normal(&localState);
-    }
-    states[tid] = localState;
-}
-
-__global__ void generate_random_philox_normal(curandStatePhilox4_32_10_t *states,
-                                               f32 *random_numbers, int n) {
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid >= TOTAL_THREADS) return;
-    curandStatePhilox4_32_10_t localState = states[tid];
+    RNGState localState = states[tid];
     for (int idx = tid; idx < n; idx += TOTAL_THREADS) {
         random_numbers[idx] = curand_normal(&localState);
     }
@@ -168,36 +66,11 @@ __global__ void generate_random_philox_normal(curandStatePhilox4_32_10_t *states
 }
 
 
-// Normal Generation Kernels (64-bit) using curand_normal_double
-
-
-__global__ void generate_random_xorwow_normal_64(curandStateXORWOW_t *states,
-                                                 f64 *random_numbers, int n) {
+template <typename RNGState>
+__global__ void generate_normal_64(RNGState *states, f64 *random_numbers, int n) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid >= TOTAL_THREADS) return;
-    curandStateXORWOW_t localState = states[tid];
-    for (int idx = tid; idx < n; idx += TOTAL_THREADS) {
-        random_numbers[idx] = curand_normal_double(&localState);
-    }
-    states[tid] = localState;
-}
-
-__global__ void generate_random_mrg32k3a_normal_64(curandStateMRG32k3a_t *states,
-                                                   f64 *random_numbers, int n) {
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid >= TOTAL_THREADS) return;
-    curandStateMRG32k3a_t localState = states[tid];
-    for (int idx = tid; idx < n; idx += TOTAL_THREADS) {
-        random_numbers[idx] = curand_normal_double(&localState);
-    }
-    states[tid] = localState;
-}
-
-__global__ void generate_random_philox_normal_64(curandStatePhilox4_32_10_t *states,
-                                                 f64 *random_numbers, int n) {
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid >= TOTAL_THREADS) return;
-    curandStatePhilox4_32_10_t localState = states[tid];
+    RNGState localState = states[tid];
     for (int idx = tid; idx < n; idx += TOTAL_THREADS) {
         random_numbers[idx] = curand_normal_double(&localState);
     }
@@ -205,10 +78,23 @@ __global__ void generate_random_philox_normal_64(curandStatePhilox4_32_10_t *sta
 }
 
 
+template __global__ void init_states<curandStateXORWOW>(curandStateXORWOW*, Data64);
+template __global__ void init_states<curandStateMRG32k3a>(curandStateMRG32k3a*, Data64);
+template __global__ void init_states<curandStatePhilox4_32_10>(curandStatePhilox4_32_10*, Data64);
 
+template __global__ void generate_uniform_32<curandStateXORWOW>(curandStateXORWOW*, Data32*, int);
+template __global__ void generate_uniform_32<curandStateMRG32k3a>(curandStateMRG32k3a*, Data32*, int);
+template __global__ void generate_uniform_32<curandStatePhilox4_32_10>(curandStatePhilox4_32_10*, Data32*, int);
 
+template __global__ void generate_uniform_64<curandStateXORWOW>(curandStateXORWOW*, Data64*, int);
+template __global__ void generate_uniform_64<curandStateMRG32k3a>(curandStateMRG32k3a*, Data64*, int);
+template __global__ void generate_uniform_64<curandStatePhilox4_32_10>(curandStatePhilox4_32_10*, Data64*, int);
 
+template __global__ void generate_normal_32<curandStateXORWOW>(curandStateXORWOW*, f32*, int);
+template __global__ void generate_normal_32<curandStateMRG32k3a>(curandStateMRG32k3a*, f32*, int);
+template __global__ void generate_normal_32<curandStatePhilox4_32_10>(curandStatePhilox4_32_10*, f32*, int);
+
+template __global__ void generate_normal_64<curandStateXORWOW>(curandStateXORWOW*, f64*, int);
+template __global__ void generate_normal_64<curandStateMRG32k3a>(curandStateMRG32k3a*, f64*, int);
+template __global__ void generate_normal_64<curandStatePhilox4_32_10>(curandStatePhilox4_32_10*, f64*, int);
 } // end namespace rngongpu
-
-
-
