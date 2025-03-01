@@ -12,31 +12,25 @@
 namespace rngongpu
 {
     void AES_RNG::init() {
-        this -> seed = new Data32[8];
-
         std::random_device rd;
         std::mt19937_64 gen(rd());
-        std::uniform_int_distribution<Data32> dist(0, std::numeric_limits<Data32>::max());
+        std::uniform_int_distribution<Data32> dist(0, std::numeric_limits<Data8>::max());
         
-        for (int i = 0; i < 8; i++) this -> seed[i] = dist(gen);
+        for (int i = 0; i < 32; i++) this -> seed.push_back(dist(gen));
 
         // Results of Block_Encrypt(0, 1) and Block_Encrypt(0, 2)
-        Data32 temp[8];
-        temp[0] = 0x58E2FCCE;
-        temp[1] = 0xFA7E3061;
-        temp[2] = 0x367F1D57;
-        temp[3] = 0xA4E7455A;
-        temp[4] = 0x0388DACE;
-        temp[5] = 0x60B6A392;
-        temp[6] = 0xF328C2B9;
-        temp[7] = 0x71B2FE78;
+        std::vector<unsigned char> temp = {0x58, 0xE2, 0xFC, 0xCE,
+                                        0xFA, 0x7E, 0x30, 0x61,
+                                        0x36, 0x7F, 0x1D, 0x57,
+                                        0xA4, 0xE7, 0x45, 0x5A,
+                                        0x03, 0x88, 0xDA, 0xCE,
+                                        0x60, 0xB6, 0xA3, 0x92,
+                                        0xF3, 0x28, 0xC2, 0xB9,
+                                        0x71, 0xB2, 0xFE, 0x78};
 
-        this -> key = new Data32[4];
-        this -> nonce = new Data32[4];
-
-        for (int i = 0; i < 4; i++) {
-            this -> key[i] = temp[i] ^ seed[i];
-            this -> nonce[i] = temp[i] ^ seed[i+4];
+        for (int i = 0; i < 16; i++) {
+            this -> key.push_back(temp[i] ^ seed[i]);
+            this -> nonce.push_back(temp[i+16] ^ seed[i+16]);
         }
 
         // Allocate RCON values
@@ -72,25 +66,30 @@ namespace rngongpu
         RNGONGPU_CUDA_CHECK(cudaMallocManaged(&(this -> roundKeys), AES_128_KEY_SIZE_INT * sizeof(Data32)));
         
         cudaMalloc(&(this -> d_nonce), 4 * sizeof(Data32));
-        cudaMemcpy(this -> d_nonce, this -> nonce, 4 * sizeof(Data32), cudaMemcpyHostToDevice);
+        cudaMemcpy(this -> d_nonce, (this -> nonce).data(), 4 * sizeof(Data32), cudaMemcpyHostToDevice);
 
         // Key expansion
         keyExpansion(this -> key, this -> roundKeys);
-        initState();
     }
-    void AES_RNG::initState() {}
     void AES_RNG::increment_nonce(Data32 N) {
-        if (this -> nonce[3] + N < this -> nonce[3]) {
-            this -> nonce[2] += 1;
+        for (int i = nonce.size() - 1; i >= 0; i--) { 
+            if (nonce[i] < 255) {
+                nonce[i]++;
+                break;
+            }
+            nonce[i] = 0;
         }
-        this -> nonce[3] += N;
         
-        cudaMemcpy(this -> d_nonce, this -> nonce, 4 * sizeof(Data32), cudaMemcpyHostToDevice);
+        cudaMemcpy(this -> d_nonce, (this -> nonce).data(), 4 * sizeof(Data32), cudaMemcpyHostToDevice);
     }
 
     // generate random bits on the device. Write N bytes to res 
     // using BLOCKS blocks with THREADS threads each.
     void AES_RNG::gen_random_bytes(int N, int nBLOCKS, int nTHREADS, Data64* res) {
+        if (this -> isPredictionResistanceEnabled || this -> reseedCounter >= RESEED_INTERVAL) {
+            reseed(std::vector<unsigned char>());
+        }
+
         int num_u64 = (N + 7) / 8;
         // Calculate the range for each thread
         Data64* range;
@@ -112,8 +111,10 @@ namespace rngongpu
         cudaFree(range);
 
         this -> increment_nonce(num_u64 + 1 / 2);
+        this -> update(std::vector<unsigned char>());
+        this -> reseedCounter += (N / MAX_BYTES_PER_REQUEST + 1);
     }
-    AES_RNG::AES_RNG() : seed(nullptr), nonce(nullptr), key(nullptr) {this -> init();}
+    AES_RNG::AES_RNG(bool _isPredictionResistanceEnabled) : reseedCounter(1UL), isPredictionResistanceEnabled(_isPredictionResistanceEnabled) {this -> init();}
 
     AES_RNG::~AES_RNG() {
         cudaFree(this -> t0);
@@ -219,5 +220,80 @@ namespace rngongpu
 
         mod_reduce_u32<<<dim3(BLOCKS, p_num, 1), THREADS>>>(res, d_p, p_num, N);
         cudaDeviceSynchronize();
+    }
+
+    void AES_RNG::update(std::vector<unsigned char> additionalInput) {
+        // Do 2 encryptions on V and V + 1.
+        // Set V to V + 2.
+        // XOR the blocks with additionalInput
+        // Set Key to first, V to second block
+
+        if (additionalInput.size() < 32) {
+            for (int i = 1; i <= 32 - additionalInput.size(); i++) additionalInput.push_back(0);
+        }
+
+        EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+        if (!ctx)
+            throw std::runtime_error("CTR_DRBG_Update: Failed to create EVP_CIPHER_CTX");
+
+        if (1 != EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, (this -> key).data(), nullptr))
+            throw std::runtime_error("CTR_DRBG_Update: EVP_EncryptInit_ex failed");
+
+        EVP_CIPHER_CTX_set_padding(ctx, 0);
+        std::vector<unsigned char> temp;
+        temp.reserve(16);
+        const std::size_t blockSize = 16;
+        std::vector<unsigned char> outputBlock(blockSize);
+        std::vector<unsigned char> Vtemp(this->nonce);
+
+        for (std::size_t i = 0; i < 32 / blockSize; i++) { 
+            // Increment Vtemp in big-endian order.
+            for (int j = blockSize - 1; j >= 0; j--) {
+                if (++Vtemp[j] != 0)
+                    break;
+            }           
+            int outlen = 0;
+            if (1 != EVP_EncryptUpdate(ctx, outputBlock.data(), &outlen, Vtemp.data(), blockSize))
+                throw std::runtime_error("CTR_DRBG_Update: EVP_EncryptUpdate failed");
+            if (outlen != static_cast<int>(blockSize))
+                throw std::runtime_error("CTR_DRBG_Update: Unexpected block size");
+            temp.insert(temp.end(), outputBlock.begin(), outputBlock.end());
+        }
+        EVP_CIPHER_CTX_free(ctx);
+
+        for (int i = 0; i < blockSize; i++) {
+            this -> key[i] = temp[i] ^ additionalInput[i];
+            this -> nonce[i] = temp[i+16] ^ additionalInput[i+16];
+        }
+        keyExpansion(key, roundKeys);
+        cudaMemcpy(this -> d_nonce, (this -> nonce).data(), 4 * sizeof(Data32), cudaMemcpyHostToDevice);
+    }   
+
+    void AES_RNG::resetReseedCounter() {
+        this -> reseedCounter = 1;
+    }
+
+    void AES_RNG::reseed(std::vector<unsigned char> additionalInput) {
+        if (additionalInput.size() < 32) {
+            for (int i = 0; i < 32 - additionalInput.size(); i++) additionalInput.push_back(0);
+        }
+        std::vector<unsigned char> entropyInput(32, 0);
+        std::random_device rd;
+        std::mt19937_64 gen(rd());
+        std::uniform_int_distribution<Data32> dist(0, std::numeric_limits<Data8>::max());
+        
+        for (int i = 0; i < 32; i++) entropyInput.push_back(dist(gen) ^ additionalInput[i]);
+        this -> update(entropyInput);
+        this -> resetReseedCounter();
+    }
+
+    void AES_RNG::printWorkingState() {
+        std::cout << "------DRBG State------\n";
+        std::cout << "Key: " << std::hex << std::uppercase;
+        for (int i = 0; i < 13; i+=4) std::cout << (int) this->key[i] << (int)  this->key[i+1] << (int)  this->key[i+2] << (int)  this->key[i+3] << " "; 
+        std:: cout << std::endl << "V: ";
+        for (int i = 0; i < 13; i+=4) std::cout << (int) this->nonce[i] << (int) this->nonce[i+1] << (int) this->nonce[i+2] << (int) this->nonce[i+3] << " "; 
+        std::cout << std::endl;
+        std::cout << std::dec << "Reseed Counter: " << reseedCounter << std::endl;
     }
 } // namespace rngongpu
