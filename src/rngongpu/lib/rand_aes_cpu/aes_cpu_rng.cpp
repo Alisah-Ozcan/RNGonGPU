@@ -7,7 +7,8 @@
 namespace rngongpu
 {
     // Helper: Convert a 32-bit unsigned integer to 4-byte big-endian.
-    static std::vector<unsigned char> uint32ToBytes(unsigned int x) {
+    static std::vector<unsigned char> uint32ToBytes(unsigned int x)
+    {
         std::vector<unsigned char> bytes(4);
         bytes[0] = (x >> 24) & 0xFF;
         bytes[1] = (x >> 16) & 0xFF;
@@ -16,8 +17,10 @@ namespace rngongpu
         return bytes;
     }
 
-    const EVP_CIPHER* AESCTRRNG::getEVPCipherCBC() const {
-        switch (securityLevel) {
+    const EVP_CIPHER* AESCTRRNG::getEVPCipherCBC() const
+    {
+        switch (securityLevel)
+        {
             case SecurityLevel::AES128:
                 return EVP_aes_128_cbc();
             case SecurityLevel::AES192:
@@ -29,8 +32,10 @@ namespace rngongpu
         }
     }
 
-    const EVP_CIPHER* AESCTRRNG::getEVPCipherECB() const {
-        switch (securityLevel) {
+    const EVP_CIPHER* AESCTRRNG::getEVPCipherECB() const
+    {
+        switch (securityLevel)
+        {
             case SecurityLevel::AES128:
                 return EVP_aes_128_ecb();
             case SecurityLevel::AES192:
@@ -44,9 +49,13 @@ namespace rngongpu
 
     // DF (Derivation Function) per NIST SP 800‑90A.
     // According to NIST, the DF input should be constructed as follows:
-    // [requestedOutputBits (4 bytes) || inputLengthBits (4 bytes) || input || 0x80 || padding]
-    // Then, encrypt S using AES-CBC with a zero key and zero IV to produce the seed.
-    std::vector<unsigned char> AESCTRRNG::DF(const std::vector<unsigned char>& input, std::size_t outputLen) {
+    // [requestedOutputBits (4 bytes) || inputLengthBits (4 bytes) || input ||
+    // 0x80 || padding] Then, encrypt S using AES-CBC with a zero key and zero
+    // IV to produce the seed.
+    std::vector<unsigned char>
+    AESCTRRNG::DF(const std::vector<unsigned char>& input,
+                  std::size_t outputLen)
+    {
         unsigned int requestedBits = static_cast<unsigned int>(outputLen * 8);
         std::vector<unsigned char> S = uint32ToBytes(requestedBits);
 
@@ -66,13 +75,15 @@ namespace rngongpu
         if (!ctx)
             throw std::runtime_error("DF: Failed to create EVP_CIPHER_CTX");
 
-        if (1 != EVP_EncryptInit_ex(ctx, getEVPCipherCBC(), nullptr, zeroKey.data(), zeroIV))
+        if (1 != EVP_EncryptInit_ex(ctx, getEVPCipherCBC(), nullptr,
+                                    zeroKey.data(), zeroIV))
             throw std::runtime_error("DF: EVP_EncryptInit_ex failed");
         EVP_CIPHER_CTX_set_padding(ctx, 0);
 
         std::vector<unsigned char> cipher(S.size() + 16);
         int outlen1 = 0, outlen2 = 0;
-        if (1 != EVP_EncryptUpdate(ctx, cipher.data(), &outlen1, S.data(), S.size()))
+        if (1 !=
+            EVP_EncryptUpdate(ctx, cipher.data(), &outlen1, S.data(), S.size()))
             throw std::runtime_error("DF: EVP_EncryptUpdate failed");
         if (1 != EVP_EncryptFinal_ex(ctx, cipher.data() + outlen1, &outlen2))
             throw std::runtime_error("DF: EVP_EncryptFinal_ex failed");
@@ -85,100 +96,129 @@ namespace rngongpu
     }
 
     // CTR_DRBG_Update updates the internal state as per NIST SP 800‑90A:
-    // It encrypts successive increments of the counter V in ECB mode to produce a temporary
-    // value of length seedLen. If providedData is non-empty, it must be exactly seedLen bytes
-    // and is XORed with the temporary value before updating the internal state.
-    void AESCTRRNG::CTR_DRBG_Update(const std::vector<unsigned char>& providedData) {
+    // It encrypts successive increments of the counter V in ECB mode to produce
+    // a temporary value of length seedLen. If providedData is non-empty, it
+    // must be exactly seedLen bytes and is XORed with the temporary value
+    // before updating the internal state.
+    void
+    AESCTRRNG::CTR_DRBG_Update(const std::vector<unsigned char>& providedData)
+    {
         const std::size_t seedlen = seedLen;
         std::vector<unsigned char> temp;
         temp.reserve(seedlen);
 
         EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
         if (!ctx)
-            throw std::runtime_error("CTR_DRBG_Update: Failed to create EVP_CIPHER_CTX");
+            throw std::runtime_error(
+                "CTR_DRBG_Update: Failed to create EVP_CIPHER_CTX");
 
-        if (1 != EVP_EncryptInit_ex(ctx, getEVPCipherECB(), nullptr, key.data(), nullptr))
-            throw std::runtime_error("CTR_DRBG_Update: EVP_EncryptInit_ex failed");
+        if (1 != EVP_EncryptInit_ex(ctx, getEVPCipherECB(), nullptr, key.data(),
+                                    nullptr))
+            throw std::runtime_error(
+                "CTR_DRBG_Update: EVP_EncryptInit_ex failed");
         EVP_CIPHER_CTX_set_padding(ctx, 0);
 
         const std::size_t blockSize = 16;
         std::vector<unsigned char> outputBlock(blockSize);
         std::vector<unsigned char> Vtemp = V;
-        for (std::size_t i = 0; i < seedlen / blockSize; i++) {
+        for (std::size_t i = 0; i < seedlen / blockSize; i++)
+        {
             // Increment Vtemp in big-endian order.
-            for (int j = blockSize - 1; j >= 0; j--) {
+            for (int j = blockSize - 1; j >= 0; j--)
+            {
                 if (++Vtemp[j] != 0)
                     break;
             }
             int outlen = 0;
-            if (1 != EVP_EncryptUpdate(ctx, outputBlock.data(), &outlen, Vtemp.data(), blockSize))
-                throw std::runtime_error("CTR_DRBG_Update: EVP_EncryptUpdate failed");
+            if (1 != EVP_EncryptUpdate(ctx, outputBlock.data(), &outlen,
+                                       Vtemp.data(), blockSize))
+                throw std::runtime_error(
+                    "CTR_DRBG_Update: EVP_EncryptUpdate failed");
             if (outlen != static_cast<int>(blockSize))
-                throw std::runtime_error("CTR_DRBG_Update: Unexpected block size");
+                throw std::runtime_error(
+                    "CTR_DRBG_Update: Unexpected block size");
             temp.insert(temp.end(), outputBlock.begin(), outputBlock.end());
         }
         EVP_CIPHER_CTX_free(ctx);
 
-        if (!providedData.empty()) {
+        if (!providedData.empty())
+        {
             if (providedData.size() != seedlen)
-                throw std::runtime_error("CTR_DRBG_Update: additional input must be of length seedLen");
-            for (std::size_t i = 0; i < seedlen; i++) {
+                throw std::runtime_error("CTR_DRBG_Update: additional input "
+                                         "must be of length seedLen");
+            for (std::size_t i = 0; i < seedlen; i++)
+            {
                 temp[i] ^= providedData[i];
             }
         }
-        // Update internal state: new key is first keyLen bytes; new V is the remaining 16 bytes.
+        // Update internal state: new key is first keyLen bytes; new V is the
+        // remaining 16 bytes.
         key.assign(temp.begin(), temp.begin() + keyLen);
         V.assign(temp.begin() + keyLen, temp.end());
     }
 
-    void AESCTRRNG::incrementV() {
+    void AESCTRRNG::incrementV()
+    {
         const std::size_t blockSize = 16;
-        for (int i = blockSize - 1; i >= 0; i--) {
+        for (int i = blockSize - 1; i >= 0; i--)
+        {
             if (++V[i] != 0)
                 break;
         }
     }
 
-    void AESCTRRNG::validateEntropyInput(const std::vector<unsigned char>& entropyInput) {
-        // For all levels, at least 16 bytes are required; higher levels should provide more.
+    void AESCTRRNG::validateEntropyInput(
+        const std::vector<unsigned char>& entropyInput)
+    {
+        // For all levels, at least 16 bytes are required; higher levels should
+        // provide more.
         if (entropyInput.size() < 16)
-            throw std::runtime_error("Insufficient entropy: minimum 16 bytes required");
+            throw std::runtime_error(
+                "Insufficient entropy: minimum 16 bytes required");
     }
 
-    void AESCTRRNG::validateAdditionalInput(const std::vector<unsigned char>& additionalInput) {
+    void AESCTRRNG::validateAdditionalInput(
+        const std::vector<unsigned char>& additionalInput)
+    {
         if (!additionalInput.empty() && additionalInput.size() != seedLen)
-            throw std::runtime_error("Additional input must be exactly seedLen bytes if provided");
+            throw std::runtime_error(
+                "Additional input must be exactly seedLen bytes if provided");
     }
 
     // Constructor (Instantiation)
-    // It assembles seed material = entropyInput || nonce || personalizationString, and then uses DF to produce a seed.
-    AESCTRRNG::AESCTRRNG(const std::vector<unsigned char>& entropyInput,
-                        const std::vector<unsigned char>& nonce,
-                        const std::vector<unsigned char>& personalizationString,
-                        SecurityLevel secLevel,
-                        bool predictionResistance)
+    // It assembles seed material = entropyInput || nonce ||
+    // personalizationString, and then uses DF to produce a seed.
+    AESCTRRNG::AESCTRRNG(
+        const std::vector<unsigned char>& entropyInput,
+        const std::vector<unsigned char>& nonce,
+        const std::vector<unsigned char>& personalizationString,
+        SecurityLevel secLevel, bool predictionResistance)
         : securityLevel(secLevel),
-        predictionResistanceEnabled(predictionResistance),
-        reseedCounter(1)
+          predictionResistanceEnabled(predictionResistance), reseedCounter(1)
     {
         validateEntropyInput(entropyInput);
         // Set keyLen based on security level.
-        switch (securityLevel) {
+        switch (securityLevel)
+        {
             case SecurityLevel::AES128:
-                keyLen = 16; break;
+                keyLen = 16;
+                break;
             case SecurityLevel::AES192:
-                keyLen = 24; break;
+                keyLen = 24;
+                break;
             case SecurityLevel::AES256:
-                keyLen = 32; break;
+                keyLen = 32;
+                break;
             default:
                 throw std::runtime_error("Unsupported security level");
         }
-        seedLen = keyLen + 16;  // 16 bytes for the block size (V)
+        seedLen = keyLen + 16; // 16 bytes for the block size (V)
 
         // Assemble seed material.
         std::vector<unsigned char> seed_material = entropyInput;
         seed_material.insert(seed_material.end(), nonce.begin(), nonce.end());
-        seed_material.insert(seed_material.end(), personalizationString.begin(), personalizationString.end());
+        seed_material.insert(seed_material.end(), personalizationString.begin(),
+                             personalizationString.end());
 
         // Derive seed using DF.
         std::vector<unsigned char> seed = DF(seed_material, seedLen);
@@ -187,8 +227,10 @@ namespace rngongpu
     }
 
     // Reseed: Gathers new entropy and optional additional input.
-    // The new entropy length is now chosen to be keyLen (matching the security level).
-    void AESCTRRNG::reseed(const std::vector<unsigned char>& additionalInput) {
+    // The new entropy length is now chosen to be keyLen (matching the security
+    // level).
+    void AESCTRRNG::reseed(const std::vector<unsigned char>& additionalInput)
+    {
         validateAdditionalInput(additionalInput);
         // Generate new entropy of length equal to keyLen.
         std::vector<unsigned char> newEntropy(keyLen);
@@ -196,18 +238,22 @@ namespace rngongpu
             throw std::runtime_error("RAND_bytes failed during reseed");
 
         std::vector<unsigned char> seed_material = newEntropy;
-        seed_material.insert(seed_material.end(), additionalInput.begin(), additionalInput.end());
+        seed_material.insert(seed_material.end(), additionalInput.begin(),
+                             additionalInput.end());
 
         std::vector<unsigned char> seed = DF(seed_material, seedLen);
         CTR_DRBG_Update(seed);
         reseedCounter = 1;
     }
 
-    // getRandomBytes: Generates n random bytes using AES-ECB encryption of the incremented counter V.
-    // If prediction resistance is enabled, a reseed is performed before generation. Also, if the reseedCounter
-    // reaches RESEED_INTERVAL, a reseed is triggered.
-    std::vector<unsigned char> AESCTRRNG::getRandomBytes(std::size_t n) {
-        if (predictionResistanceEnabled) {
+    // getRandomBytes: Generates n random bytes using AES-ECB encryption of the
+    // incremented counter V. If prediction resistance is enabled, a reseed is
+    // performed before generation. Also, if the reseedCounter reaches
+    // RESEED_INTERVAL, a reseed is triggered.
+    std::vector<unsigned char> AESCTRRNG::getRandomBytes(std::size_t n)
+    {
+        if (predictionResistanceEnabled)
+        {
             reseed(std::vector<unsigned char>());
         }
 
@@ -216,33 +262,40 @@ namespace rngongpu
 
         EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
         if (!ctx)
-            throw std::runtime_error("getRandomBytes: Failed to create EVP_CIPHER_CTX");
+            throw std::runtime_error(
+                "getRandomBytes: Failed to create EVP_CIPHER_CTX");
 
-        if (1 != EVP_EncryptInit_ex(ctx, getEVPCipherECB(), nullptr, key.data(), nullptr))
-            throw std::runtime_error("getRandomBytes: EVP_EncryptInit_ex failed");
+        if (1 != EVP_EncryptInit_ex(ctx, getEVPCipherECB(), nullptr, key.data(),
+                                    nullptr))
+            throw std::runtime_error(
+                "getRandomBytes: EVP_EncryptInit_ex failed");
         EVP_CIPHER_CTX_set_padding(ctx, 0);
 
         const std::size_t blockSize = 16;
         std::vector<unsigned char> block(blockSize);
         int outlen = 0;
-        while (output.size() < n) {
+        while (output.size() < n)
+        {
             incrementV();
 
             ///////////////////////////
             std::cout << output.size() << " -> ";
-            for (unsigned char byte : key) {
+            for (unsigned char byte : key)
+            {
                 std::cout << std::hex << std::setw(2) << std::setfill('0')
-                        << static_cast<int>(byte);
+                          << static_cast<int>(byte);
             }
             std::cout << std::dec << std::endl;
 
             ///////////////////////////
 
-
-            if (1 != EVP_EncryptUpdate(ctx, block.data(), &outlen, V.data(), blockSize))
-                throw std::runtime_error("getRandomBytes: EVP_EncryptUpdate failed");
+            if (1 != EVP_EncryptUpdate(ctx, block.data(), &outlen, V.data(),
+                                       blockSize))
+                throw std::runtime_error(
+                    "getRandomBytes: EVP_EncryptUpdate failed");
             if (outlen != static_cast<int>(blockSize))
-                throw std::runtime_error("getRandomBytes: Unexpected block size");
+                throw std::runtime_error(
+                    "getRandomBytes: Unexpected block size");
             output.insert(output.end(), block.begin(), block.end());
             reseedCounter++;
             if (reseedCounter >= RESEED_INTERVAL)

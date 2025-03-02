@@ -1,5 +1,5 @@
 // Original code by Cihangir Tezcan.
-// (No license specified in the original repository.)
+// Licensed under the Apache License, Version 2.0
 // Original repository: https://github.com/cihangirtezcan/CUDA_AES
 // Paper: https://ieeexplore.ieee.org/document/9422754
 //
@@ -586,23 +586,25 @@ namespace rngongpu
     // Key expansion from given key set, populate rk[44]
     __host__ void keyExpansion(std::vector<unsigned char> key, Data32* rk);
 
+    // Key expansion from given key set, populate rk[52]
+    __host__ void keyExpansion192(Data32* key, Data32* rk);
+
+    // Key expansion from given key set, populate rk[52]
+    __host__ void keyExpansion256(Data32* key, Data32* rk);
+
     __global__ void
     counterWithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBoxCihangir(
         Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64* range,
         Data8* SAES, Data64* rng_res, Data32 N);
 
-    __global__ void box_muller_u32(Data32* nums, f32* res, Data32 N);
-    
-    __global__ void box_muller_u64(Data64* nums, f64* res, Data32 N);
+    __global__ void
+    counter192WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox(
+        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64* range);
 
+    __global__ void
+    counter256WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox(
+        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64* range);
 
-    __global__ void mod_reduce_u64(Data64* nums, Modulus64* p, Data32 N);
-
-    __global__ void mod_reduce_u64(Data64* nums, Modulus64* p, Data32 p_N, Data32 N);
-
-    __global__ void mod_reduce_u32(Data32* nums, Modulus32* p, Data32 p_N, Data32 N);
-
-    __global__ void mod_reduce_u32(Data32* nums, Modulus32* p, Data32 N);
 } // namespace rngongpu
 
 #endif // AES_H
