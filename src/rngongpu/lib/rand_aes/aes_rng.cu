@@ -18,6 +18,8 @@ namespace rngongpu
         
         for (int i = 0; i < 32; i++) this -> seed.push_back(dist(gen));
 
+        std::vector<unsigned char> seedMaterial = DF(seed, 32);
+
         // Results of Block_Encrypt(0, 1) and Block_Encrypt(0, 2)
         std::vector<unsigned char> temp = {0x58, 0xE2, 0xFC, 0xCE,
                                         0xFA, 0x7E, 0x30, 0x61,
@@ -29,8 +31,8 @@ namespace rngongpu
                                         0x71, 0xB2, 0xFE, 0x78};
 
         for (int i = 0; i < 16; i++) {
-            this -> key.push_back(temp[i] ^ seed[i]);
-            this -> nonce.push_back(temp[i+16] ^ seed[i+16]);
+            this -> key.push_back(temp[i] ^ seedMaterial[i]);
+            this -> nonce.push_back(temp[i+16] ^ seedMaterial[i+16]);
         }
 
         // Allocate RCON values
@@ -85,9 +87,14 @@ namespace rngongpu
 
     // generate random bits on the device. Write N bytes to res 
     // using BLOCKS blocks with THREADS threads each.
-    void AES_RNG::gen_random_bytes(int N, int nBLOCKS, int nTHREADS, Data64* res) {
+    void AES_RNG::gen_random_bytes(int N, int nBLOCKS, int nTHREADS, Data64* res, std::vector<unsigned char> additionalInput) {
         if (this -> isPredictionResistanceEnabled || this -> reseedCounter >= RESEED_INTERVAL) {
             reseed(std::vector<unsigned char>());
+        }
+
+        if (additionalInput.size() != 0) {
+            additionalInput = DF(additionalInput, 32);
+            update(additionalInput);
         }
 
         int num_u64 = (N + 7) / 8;
@@ -135,7 +142,7 @@ namespace rngongpu
         Data64* res_u64;
         int num_u32 = N;
         cudaMalloc(&res_u64, num_u32 * sizeof(Data32));
-        this -> gen_random_bytes(num_u32 * sizeof(Data32), BLOCKS, THREADS, res_u64);
+        this -> gen_random_bytes(num_u32 * sizeof(Data32), BLOCKS, THREADS, res_u64, std::vector<unsigned char>());
 
         const int CTA_size = 256;
         const int grid_size = (N + CTA_size - 1) / (CTA_size * 2);
@@ -148,7 +155,7 @@ namespace rngongpu
         Data64* res_u64;
         int num_u64 = N;
         cudaMalloc(&res_u64, num_u64 * sizeof(Data64));
-        this -> gen_random_bytes(num_u64 * sizeof(Data64), BLOCKS, THREADS, res_u64);
+        this -> gen_random_bytes(num_u64 * sizeof(Data64), BLOCKS, THREADS, res_u64, std::vector<unsigned char>());
 
         const int CTA_size = 256;
         const int grid_size = (N + CTA_size - 1) / (CTA_size * 2);
@@ -158,11 +165,11 @@ namespace rngongpu
     }
 
     void AES_RNG::gen_random_u64(int N, Data64* res) {
-        this -> gen_random_bytes(N * sizeof(Data64), BLOCKS, THREADS, res);
+        this -> gen_random_bytes(N * sizeof(Data64), BLOCKS, THREADS, res, std::vector<unsigned char>());
     }
 
     void AES_RNG::gen_random_u64_mod_p(int N,  Modulus64* p, Data64* res) {
-        this -> gen_random_bytes(N * sizeof(Data64), BLOCKS, THREADS, res);
+        this -> gen_random_bytes(N * sizeof(Data64), BLOCKS, THREADS, res, std::vector<unsigned char>());
         
         Modulus64* d_p;
         cudaMalloc(&d_p, sizeof(Modulus64));
@@ -176,7 +183,7 @@ namespace rngongpu
     }
 
     void AES_RNG::gen_random_u64_mod_p(int N, Modulus64* p, Data32 p_num, Data64* res) {
-        this -> gen_random_bytes(N * sizeof(Data64), BLOCKS, THREADS, res);
+        this -> gen_random_bytes(N * sizeof(Data64), BLOCKS, THREADS, res, std::vector<unsigned char>());
 
         Modulus64* d_p;
         cudaMalloc(&d_p, p_num * sizeof(Modulus64));
@@ -187,14 +194,14 @@ namespace rngongpu
 
     void AES_RNG::gen_random_u32(int N, Data32* res) {
         Data64* res_u64 = (Data64*) res;
-        this -> gen_random_bytes(N * sizeof(Data32), BLOCKS, THREADS, res_u64);
+        this -> gen_random_bytes(N * sizeof(Data32), BLOCKS, THREADS, res_u64, std::vector<unsigned char>());
         cudaDeviceSynchronize();
         res = (Data32*) res_u64;
     }
 
     void AES_RNG::gen_random_u32_mod_p(int N, Modulus32* p, Data32* res) {
         Data64* res_u64 = (Data64*) res;
-        this -> gen_random_bytes(N * sizeof(Data32), BLOCKS, THREADS, res_u64);
+        this -> gen_random_bytes(N * sizeof(Data32), BLOCKS, THREADS, res_u64, std::vector<unsigned char>());
         cudaDeviceSynchronize();
         res = (Data32*) res_u64;
 
@@ -211,7 +218,7 @@ namespace rngongpu
 
     void AES_RNG::gen_random_u32_mod_p(int N, Modulus32* p, Data32 p_num, Data32* res) {
         Data64* res_u64 = (Data64*) res;
-        this -> gen_random_bytes(N * sizeof(Data32), BLOCKS, THREADS, res_u64);
+        this -> gen_random_bytes(N * sizeof(Data32), BLOCKS, THREADS, res_u64, std::vector<unsigned char>());
         res = (Data32*) res_u64;
 
         Modulus32* d_p;
@@ -274,16 +281,20 @@ namespace rngongpu
     }
 
     void AES_RNG::reseed(std::vector<unsigned char> additionalInput) {
-        if (additionalInput.size() < 32) {
-            for (int i = 0; i < 32 - additionalInput.size(); i++) additionalInput.push_back(0);
+        if (additionalInput.size() < 16) {
+            for (int i = 0; i < 16 - additionalInput.size(); i++) additionalInput.push_back(0);
         }
-        std::vector<unsigned char> entropyInput(32, 0);
+        std::vector<unsigned char> entropyInput(16, 0);
         std::random_device rd;
         std::mt19937_64 gen(rd());
         std::uniform_int_distribution<Data32> dist(0, std::numeric_limits<Data8>::max());
         
-        for (int i = 0; i < 32; i++) entropyInput.push_back(dist(gen) ^ additionalInput[i]);
-        this -> update(entropyInput);
+        for (int i = 0; i < 16; i++) entropyInput[i] = dist(gen);
+
+        for (int i = 0; i < 16; i++) entropyInput.push_back(additionalInput[i]);
+
+        std::vector<unsigned char> seedMaterial = DF(entropyInput, 32);
+        this -> update(seedMaterial);
         this -> resetReseedCounter();
     }
 
@@ -295,5 +306,55 @@ namespace rngongpu
         for (int i = 0; i < 13; i+=4) std::cout << (int) this->nonce[i] << (int) this->nonce[i+1] << (int) this->nonce[i+2] << (int) this->nonce[i+3] << " "; 
         std::cout << std::endl;
         std::cout << std::dec << "Reseed Counter: " << reseedCounter << std::endl;
+    }
+
+    // DF (Derivation Function) per NIST SP 800‑90A.
+    // According to NIST, the DF input should be constructed as follows:
+    // [requestedOutputBits (4 bytes) || inputLengthBits (4 bytes) || input || 0x80 || padding]
+    // Then, encrypt S using AES-CBC with a zero key and zero IV to produce the seed.
+    std::vector<unsigned char> AES_RNG::DF(const std::vector<unsigned char>& input, std::size_t outputLen) {
+        unsigned int requestedBits = static_cast<unsigned int>(outputLen * 8);
+        std::vector<unsigned char> S;
+        S.push_back((requestedBits >> 24) & 0xFF);
+        S.push_back((requestedBits >> 16) & 0xFF);
+        S.push_back((requestedBits >> 8) & 0xFF);
+        S.push_back(requestedBits & 0xFF);
+
+        unsigned int inputBits = static_cast<unsigned int>(input.size() * 8);
+        
+        S.push_back((inputBits >> 24) & 0xFF);
+        S.push_back((inputBits >> 16) & 0xFF);
+        S.push_back((inputBits >> 8) & 0xFF);
+        S.push_back(inputBits & 0xFF);
+        
+        S.insert(S.end(), input.begin(), input.end());
+        S.push_back(0x80);
+        while (S.size() % 16 != 0)
+            S.push_back(0x00);
+
+        // Use a zero key whose length is equal to keyLen.
+        std::vector<unsigned char> zeroKey(16, 0x00);
+        unsigned char zeroIV[16] = {0};
+
+        EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+        if (!ctx)
+            throw std::runtime_error("DF: Failed to create EVP_CIPHER_CTX");
+
+        if (1 != EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), nullptr, zeroKey.data(), zeroIV))
+            throw std::runtime_error("DF: EVP_EncryptInit_ex failed");
+        EVP_CIPHER_CTX_set_padding(ctx, 0);
+
+        std::vector<unsigned char> cipher(S.size() + 16);
+        int outlen1 = 0, outlen2 = 0;
+        if (1 != EVP_EncryptUpdate(ctx, cipher.data(), &outlen1, S.data(), S.size()))
+            throw std::runtime_error("DF: EVP_EncryptUpdate failed");
+        if (1 != EVP_EncryptFinal_ex(ctx, cipher.data() + outlen1, &outlen2))
+            throw std::runtime_error("DF: EVP_EncryptFinal_ex failed");
+        EVP_CIPHER_CTX_free(ctx);
+
+        cipher.resize(outlen1 + outlen2);
+        if (cipher.size() > outputLen)
+            cipher.resize(outputLen);
+        return cipher;
     }
 } // namespace rngongpu

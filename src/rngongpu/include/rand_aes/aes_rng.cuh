@@ -37,10 +37,11 @@ namespace rngongpu
             void increment_nonce(Data32 N);
             void update(std::vector<unsigned char> additionalInput);
             void resetReseedCounter();
+            std::vector<unsigned char> DF(const std::vector<unsigned char>& input, std::size_t outputLen);
     
             // generate random bits on the device. Write N bytes to res 
             // using BLOCKS blocks with THREADS threads each.
-            void gen_random_bytes(int N, int nBLOCKS, int nTHREADS, Data64* res);
+            void gen_random_bytes(int N, int nBLOCKS, int nTHREADS, Data64* res, std::vector<unsigned char> additionalInput);
         public:
             //Potential additional input?
             void reseed(std::vector<unsigned char>);

@@ -10,7 +10,7 @@
 
 using namespace std;
 
-#define N (1 << 20)
+#define N (1 << 12)
 
 int main(int argc, char* argv[])
 {   
