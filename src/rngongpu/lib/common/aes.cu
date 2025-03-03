@@ -41,7 +41,6 @@ namespace rngongpu
         rk[1] = rk1;
         rk[2] = rk2;
         rk[3] = rk3;
-
         for (Data8 roundCount = 0; roundCount < ROUND_COUNT; roundCount++)
         {
             Data32 temp = rk3;
@@ -58,15 +57,15 @@ namespace rngongpu
         }
     }
 
-    __host__ void keyExpansion192(Data32* key, Data32* rk)
+    __host__ void keyExpansion192(std::vector<unsigned char> key, Data32* rk)
     {
         Data32 rk0, rk1, rk2, rk3, rk4, rk5;
-        rk0 = key[0];
-        rk1 = key[1];
-        rk2 = key[2];
-        rk3 = key[3];
-        rk4 = key[4];
-        rk5 = key[5];
+        rk0 = (key[0] << 24) | (key[1] << 16) | (key[2] << 8) | key[3];
+        rk1 = (key[4] << 24) | (key[5] << 16) | (key[6] << 8) | key[7];
+        rk2 = (key[8] << 24) | (key[9] << 16) | (key[10] << 8) | key[11];
+        rk3 = (key[12] << 24) | (key[13] << 16) | (key[14] << 8) | key[15];
+        rk4 = (key[16] << 24) | (key[17] << 16) | (key[18] << 8) | key[19];
+        rk5 = (key[20] << 24) | (key[21] << 16) | (key[22] << 8) | key[23];
 
         rk[0] = rk0;
         rk[1] = rk1;
@@ -99,17 +98,17 @@ namespace rngongpu
         }
     }
 
-    __host__ void keyExpansion256(Data32* key, Data32* rk)
+    __host__ void keyExpansion256(std::vector<unsigned char> key, Data32* rk)
     {
         Data32 rk0, rk1, rk2, rk3, rk4, rk5, rk6, rk7;
-        rk0 = key[0];
-        rk1 = key[1];
-        rk2 = key[2];
-        rk3 = key[3];
-        rk4 = key[4];
-        rk5 = key[5];
-        rk6 = key[6];
-        rk7 = key[7];
+        rk0 = (key[0] << 24) | (key[1] << 16) | (key[2] << 8) | key[3];
+        rk1 = (key[4] << 24) | (key[5] << 16) | (key[6] << 8) | key[7];
+        rk2 = (key[8] << 24) | (key[9] << 16) | (key[10] << 8) | key[11];
+        rk3 = (key[12] << 24) | (key[13] << 16) | (key[14] << 8) | key[15];
+        rk4 = (key[16] << 24) | (key[17] << 16) | (key[18] << 8) | key[19];
+        rk5 = (key[20] << 24) | (key[21] << 16) | (key[22] << 8) | key[23];
+        rk6 = (key[24] << 24) | (key[25] << 16) | (key[26] << 8) | key[27];
+        rk7 = (key[28] << 24) | (key[29] << 16) | (key[30] << 8) | key[31];
 
         rk[0] = rk0;
         rk[1] = rk1;
@@ -354,7 +353,8 @@ namespace rngongpu
 
     __global__ void
     counter192WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox(
-        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64* range)
+        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64* range, 
+        Data64* rng_res, Data32 N)
     {
         int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
         int warpThreadIndex = threadIdx.x & 31;
@@ -501,12 +501,34 @@ namespace rngongpu
 
             // Create key as 32 bit unsigned integers
             pt3Init++;
+            Data64 res_num1, res_num2;
+
+            res_num1 = s0;
+            res_num1 <<= 32;
+            res_num1 ^= s1;
+
+            res_num2 = s2;
+            res_num2 <<= 32;
+            res_num2 ^= s3;
+            if (2 * threadRange * threadIndex + 2 * rangeCount + 1 < N)
+            {
+                rng_res[2 * threadRange * threadIndex + 2 * rangeCount] =
+                    res_num1;
+                rng_res[2 * threadRange * threadIndex + 2 * rangeCount + 1] =
+                    res_num2;
+            }
+            else if (2 * threadRange * threadIndex + 2 * rangeCount)
+            {
+                rng_res[2 * threadRange * threadIndex + 2 * rangeCount] =
+                    res_num1;
+            }
         }
     }
 
     __global__ void
     counter256WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox(
-        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64* range)
+        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64* range,
+        Data64* rng_res, Data32 N)
     {
         int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
         int warpThreadIndex = threadIdx.x & 31;
@@ -653,6 +675,28 @@ namespace rngongpu
 
             // Create key as 32 bit unsigned integers
             pt3Init++;
+
+            Data64 res_num1, res_num2;
+
+            res_num1 = s0;
+            res_num1 <<= 32;
+            res_num1 ^= s1;
+
+            res_num2 = s2;
+            res_num2 <<= 32;
+            res_num2 ^= s3;
+            if (2 * threadRange * threadIndex + 2 * rangeCount + 1 < N)
+            {
+                rng_res[2 * threadRange * threadIndex + 2 * rangeCount] =
+                    res_num1;
+                rng_res[2 * threadRange * threadIndex + 2 * rangeCount + 1] =
+                    res_num2;
+            }
+            else if (2 * threadRange * threadIndex + 2 * rangeCount)
+            {
+                rng_res[2 * threadRange * threadIndex + 2 * rangeCount] =
+                    res_num1;
+            }
         }
     }
 

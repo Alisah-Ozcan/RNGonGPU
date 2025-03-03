@@ -11,29 +11,70 @@
 
 namespace rngongpu
 {
+    const EVP_CIPHER* AES_RNG::getEVPCipherECB() const
+    {
+        switch (securityLevel)
+        {
+            case SecurityLevel::AES128:
+                return EVP_aes_128_ecb();
+            case SecurityLevel::AES192:
+                return EVP_aes_192_ecb();
+            case SecurityLevel::AES256:
+                return EVP_aes_256_ecb();
+            default:
+                throw std::runtime_error("Unsupported security level in ECB");
+        }
+    }
     void AES_RNG::init()
     {
+        switch (securityLevel)
+        {
+            case SecurityLevel::AES128:
+                keyLen = 16;
+                break;
+            case SecurityLevel::AES192:
+                keyLen = 24;
+                break;
+            case SecurityLevel::AES256:
+                keyLen = 32;
+                break;
+            default:
+                throw std::runtime_error("Unsupported security level");
+        }
+        seedLen = keyLen + 16; // 16 bytes for the block size (V)
+
         std::random_device rd;
         std::mt19937_64 gen(rd());
         std::uniform_int_distribution<Data32> dist(
             0, std::numeric_limits<Data8>::max());
 
-        for (int i = 0; i < 32; i++)
+        for (int i = 0; i < seedLen; i++)
             this->seed.push_back(dist(gen));
 
-        std::vector<unsigned char> seedMaterial = DF(seed, 32);
+        std::vector<unsigned char> seedMaterial = DF(seed, seedLen);
 
-        // Results of Block_Encrypt(0, 1) and Block_Encrypt(0, 2)
-        std::vector<unsigned char> temp = {
-            0x58, 0xE2, 0xFC, 0xCE, 0xFA, 0x7E, 0x30, 0x61, 0x36, 0x7F, 0x1D,
-            0x57, 0xA4, 0xE7, 0x45, 0x5A, 0x03, 0x88, 0xDA, 0xCE, 0x60, 0xB6,
-            0xA3, 0x92, 0xF3, 0x28, 0xC2, 0xB9, 0x71, 0xB2, 0xFE, 0x78};
+        this -> key = std::vector<unsigned char>(keyLen, 0);
+        this -> nonce = std::vector<unsigned char>(16, 0);
 
-        for (int i = 0; i < 16; i++)
+        switch (securityLevel)
         {
-            this->key.push_back(temp[i] ^ seedMaterial[i]);
-            this->nonce.push_back(temp[i + 16] ^ seedMaterial[i + 16]);
+            case SecurityLevel::AES128:
+                RNGONGPU_CUDA_CHECK(cudaMallocManaged(
+                    &(this->roundKeys), AES_128_KEY_SIZE_INT * sizeof(Data32)));
+                break;
+            case SecurityLevel::AES192:
+                RNGONGPU_CUDA_CHECK(cudaMallocManaged(
+                    &(this->roundKeys), AES_192_KEY_SIZE_INT * sizeof(Data32)));
+                break;
+            case SecurityLevel::AES256:
+                RNGONGPU_CUDA_CHECK(cudaMallocManaged(
+                    &(this->roundKeys), AES_256_KEY_SIZE_INT * sizeof(Data32)));
+                break;
+            default:
+                throw std::runtime_error("Unsupported security level");
         }
+
+        this -> update(seedMaterial);
 
         // Allocate RCON values
         RNGONGPU_CUDA_CHECK(
@@ -79,15 +120,9 @@ namespace rngongpu
         for (int i = 0; i < 256; i++)
             this->SAES_d[i] = SAES[i]; // Cihangir
 
-        RNGONGPU_CUDA_CHECK(cudaMallocManaged(
-            &(this->roundKeys), AES_128_KEY_SIZE_INT * sizeof(Data32)));
-
         cudaMalloc(&(this->d_nonce), 4 * sizeof(Data32));
         cudaMemcpy(this->d_nonce, (this->nonce).data(), 4 * sizeof(Data32),
                    cudaMemcpyHostToDevice);
-
-        // Key expansion
-        keyExpansion(this->key, this->roundKeys);
     }
     void AES_RNG::increment_nonce(Data32 N)
     {
@@ -119,8 +154,11 @@ namespace rngongpu
 
         if (additionalInput.size() != 0)
         {
-            additionalInput = DF(additionalInput, 32);
+            additionalInput = DF(additionalInput, seedLen);
             update(additionalInput);
+        } else 
+        {
+            additionalInput = std::vector<unsigned char>(seedLen, 0);
         }
 
         int num_u64 = (N + 7) / 8;
@@ -136,9 +174,26 @@ namespace rngongpu
                nBLOCKS, nTHREADS);
         printf("Calling kernel to generate %u numbers, range: %llu\n", num_u64,
                *range);
-        counterWithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBoxCihangir<<<
-            nBLOCKS, nTHREADS>>>(this->d_nonce, this->roundKeys, this->t0,
-                                 this->t4, range, this->SAES_d, res, num_u64);
+        switch (securityLevel)
+        {
+            case SecurityLevel::AES128:
+                counterWithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBoxCihangir<<<
+                    nBLOCKS, nTHREADS>>>(this->d_nonce, this->roundKeys, this->t0,
+                                        this->t4, range, this->SAES_d, res, num_u64);
+                break;
+            case SecurityLevel::AES192:
+                counter192WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox<<<
+                    nBLOCKS, nTHREADS>>>(this->d_nonce, this->roundKeys, this->t0,
+                                        this->t4, range, res, num_u64);
+                break;
+            case SecurityLevel::AES256:
+                counter256WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox<<<
+                    nBLOCKS, nTHREADS>>>(this->d_nonce, this->roundKeys, this->t0,
+                                        this->t4, range, res, num_u64);
+                break;
+            default:
+                throw std::runtime_error("Unsupported security level");
+        }
         Data64* h_res_u64 = new Data64[num_u64];
         cudaMemcpy(h_res_u64, res, num_u64 * sizeof(Data64),
                    cudaMemcpyDeviceToHost);
@@ -149,12 +204,13 @@ namespace rngongpu
         cudaFree(range);
 
         this->increment_nonce(num_u64 + 1 / 2);
-        this->update(std::vector<unsigned char>());
+        this->update(additionalInput);
         this->reseedCounter += (N / MAX_BYTES_PER_REQUEST + 1);
     }
-    AES_RNG::AES_RNG(bool _isPredictionResistanceEnabled)
+    AES_RNG::AES_RNG(bool _isPredictionResistanceEnabled, SecurityLevel _securityLevel)
         : reseedCounter(1UL),
-          isPredictionResistanceEnabled(_isPredictionResistanceEnabled)
+          isPredictionResistanceEnabled(_isPredictionResistanceEnabled),
+          securityLevel(_securityLevel)
     {
         this->init();
     }
@@ -286,14 +342,10 @@ namespace rngongpu
 
     void AES_RNG::update(std::vector<unsigned char> additionalInput)
     {
-        // Do 2 encryptions on V and V + 1.
-        // Set V to V + 2.
-        // XOR the blocks with additionalInput
-        // Set Key to first, V to second block
 
-        if (additionalInput.size() < 32)
+        if (additionalInput.size() < seedLen)
         {
-            for (int i = 1; i <= 32 - additionalInput.size(); i++)
+            for (int i = 1; i <= seedLen - additionalInput.size(); i++)
                 additionalInput.push_back(0);
         }
 
@@ -302,19 +354,19 @@ namespace rngongpu
             throw std::runtime_error(
                 "CTR_DRBG_Update: Failed to create EVP_CIPHER_CTX");
 
-        if (1 != EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr,
+        if (1 != EVP_EncryptInit_ex(ctx, this->getEVPCipherECB(), nullptr,
                                     (this->key).data(), nullptr))
             throw std::runtime_error(
                 "CTR_DRBG_Update: EVP_EncryptInit_ex failed");
 
         EVP_CIPHER_CTX_set_padding(ctx, 0);
         std::vector<unsigned char> temp;
-        temp.reserve(16);
+        temp.reserve(seedLen);
         const std::size_t blockSize = 16;
         std::vector<unsigned char> outputBlock(blockSize);
         std::vector<unsigned char> Vtemp(this->nonce);
-
-        for (std::size_t i = 0; i < 32 / blockSize; i++)
+            
+        for (std::size_t i = 0; i < seedLen / blockSize; i++)
         {
             // Increment Vtemp in big-endian order.
             for (int j = blockSize - 1; j >= 0; j--)
@@ -334,12 +386,35 @@ namespace rngongpu
         }
         EVP_CIPHER_CTX_free(ctx);
 
-        for (int i = 0; i < blockSize; i++)
+        if (!additionalInput.empty())
         {
-            this->key[i] = temp[i] ^ additionalInput[i];
-            this->nonce[i] = temp[i + 16] ^ additionalInput[i + 16];
+            if (additionalInput.size() != seedLen)
+                throw std::runtime_error("CTR_DRBG_Update: additional input "
+                                         "must be of length seedLen");
+            for (std::size_t i = 0; i < seedLen; i++)
+            {
+                temp[i] ^= additionalInput[i];
+            }
         }
-        keyExpansion(key, roundKeys);
+        // Update internal state: new key is first keyLen bytes; new V is the
+        // remaining 16 bytes.
+        key.assign(temp.begin(), temp.begin() + keyLen);
+        nonce.assign(temp.begin() + keyLen, temp.end());
+        
+        switch (securityLevel)
+        {
+            case SecurityLevel::AES128:
+                keyExpansion(this->key, this->roundKeys);
+                break;
+            case SecurityLevel::AES192:
+                keyExpansion192(this->key, this->roundKeys);
+                break;
+            case SecurityLevel::AES256:
+                keyExpansion256(this->key, this->roundKeys);
+                break;
+            default:
+                throw std::runtime_error("Unsupported security level");
+        }
         cudaMemcpy(this->d_nonce, (this->nonce).data(), 4 * sizeof(Data32),
                    cudaMemcpyHostToDevice);
     }
@@ -351,24 +426,24 @@ namespace rngongpu
 
     void AES_RNG::reseed(std::vector<unsigned char> additionalInput)
     {
-        if (additionalInput.size() < 16)
+        if (additionalInput.size() < seedLen - keyLen)
         {
-            for (int i = 0; i < 16 - additionalInput.size(); i++)
+            for (int i = 0; i < seedLen - keyLen - additionalInput.size(); i++)
                 additionalInput.push_back(0);
         }
-        std::vector<unsigned char> entropyInput(16, 0);
+        std::vector<unsigned char> entropyInput(keyLen, 0);
         std::random_device rd;
         std::mt19937_64 gen(rd());
         std::uniform_int_distribution<Data32> dist(
             0, std::numeric_limits<Data8>::max());
 
-        for (int i = 0; i < 16; i++)
+        for (int i = 0; i < keyLen; i++)
             entropyInput[i] = dist(gen);
 
-        for (int i = 0; i < 16; i++)
+        for (int i = 0; i < seedLen - keyLen; i++)
             entropyInput.push_back(additionalInput[i]);
 
-        std::vector<unsigned char> seedMaterial = DF(entropyInput, 32);
+        std::vector<unsigned char> seedMaterial = DF(entropyInput, seedLen);
         this->update(seedMaterial);
         this->resetReseedCounter();
     }
@@ -377,7 +452,7 @@ namespace rngongpu
     {
         std::cout << "------DRBG State------\n";
         std::cout << "Key: " << std::hex << std::uppercase;
-        for (int i = 0; i < 13; i += 4)
+        for (int i = 0; i < keyLen - 3; i += 4)
             std::cout << (int) this->key[i] << (int) this->key[i + 1]
                       << (int) this->key[i + 2] << (int) this->key[i + 3]
                       << " ";
@@ -426,7 +501,7 @@ namespace rngongpu
         if (!ctx)
             throw std::runtime_error("DF: Failed to create EVP_CIPHER_CTX");
 
-        if (1 != EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), nullptr,
+        if (1 != EVP_EncryptInit_ex(ctx, this->getEVPCipherECB(), nullptr,
                                     zeroKey.data(), zeroIV))
             throw std::runtime_error("DF: EVP_EncryptInit_ex failed");
         EVP_CIPHER_CTX_set_padding(ctx, 0);
