@@ -5,10 +5,15 @@
 #ifndef CUDA_RNG_H
 #define CUDA_RNG_H
 
-#include <string>
-#include "aes.cuh"
-#include "cuda_rng_kernels.cuh"  
+#include "cuda_rng.cuh"
+#include <cuda_runtime.h>
 #include <curand_kernel.h>
+#include <curand_mtgp32_host.h>
+#include <curand_mtgp32dc_p_11213.h>
+#include <iostream>
+#include "aes.cuh"
+#include "cuda_rng_kernels.cuh"
+#include "base_rng.cuh"
 
 namespace rngongpu {
 
