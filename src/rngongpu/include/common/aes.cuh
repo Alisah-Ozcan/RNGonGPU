@@ -587,10 +587,10 @@ namespace rngongpu
     __host__ void keyExpansion(std::vector<unsigned char> key, Data32* rk);
 
     // Key expansion from given key set, populate rk[52]
-    __host__ void keyExpansion192(Data32* key, Data32* rk);
+    __host__ void keyExpansion192(std::vector<unsigned char> key, Data32* rk);
 
     // Key expansion from given key set, populate rk[52]
-    __host__ void keyExpansion256(Data32* key, Data32* rk);
+    __host__ void keyExpansion256(std::vector<unsigned char> key, Data32* rk);
 
     __global__ void
     counterWithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBoxCihangir(
@@ -599,11 +599,13 @@ namespace rngongpu
 
     __global__ void
     counter192WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox(
-        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64* range);
+        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64* range,
+        Data64* rng_res, Data32 N);
 
     __global__ void
     counter256WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox(
-        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64* range);
+        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64* range,
+        Data64* rng_res, Data32 N);
 
 } // namespace rngongpu
 

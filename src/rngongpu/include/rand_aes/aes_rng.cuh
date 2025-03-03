@@ -11,6 +11,12 @@
 
 namespace rngongpu
 {
+    enum class SecurityLevel
+    {
+        AES128 = 128,
+        AES192 = 192,
+        AES256 = 256
+    };
     class AES_RNG
     {
       private:
@@ -25,7 +31,10 @@ namespace rngongpu
         // a reseed be limited.
         const Data64 RESEED_INTERVAL = (1ULL << 48);
         const Data32 MAX_BYTES_PER_REQUEST = 1 << 19;
-        const std::size_t securityLevel = 128;
+        const SecurityLevel securityLevel;
+        std::size_t keyLen; // Key length in bytes (16 for AES-128, 24 for
+        // AES-192, 32 for AES-256)
+        std::size_t seedLen; // seedLen = keyLen + 16 (16 bytes for the block size)
         Data64 reseedCounter;
 
         // AES-128 relevant fields
@@ -41,6 +50,7 @@ namespace rngongpu
         void resetReseedCounter();
         std::vector<unsigned char> DF(const std::vector<unsigned char>& input,
                                       std::size_t outputLen);
+        const EVP_CIPHER* getEVPCipherECB() const;
 
         // generate random bits on the device. Write N bytes to res
         // using BLOCKS blocks with THREADS threads each.
@@ -51,7 +61,7 @@ namespace rngongpu
         // Potential additional input?
         void reseed(std::vector<unsigned char>);
         void printWorkingState();
-        AES_RNG(bool _isPredictionResistanceEnabled);
+        AES_RNG(bool _isPredictionResistanceEnabled, SecurityLevel _securityLevel);
 
         void gen_random_u32(int N, Data32* res);
         void gen_random_u32_mod_p(int N, Modulus32* p, Data32* res);
