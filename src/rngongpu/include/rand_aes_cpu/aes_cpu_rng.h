@@ -101,6 +101,16 @@ namespace rngongpu
         // security level.
         const EVP_CIPHER* getEVPCipherCBC() const;
         const EVP_CIPHER* getEVPCipherECB() const;
+
+        
+        // Blok cipher: AES-128 ECB mode, no padding
+        std::vector<unsigned char> Block_Encrypt(const std::vector<unsigned char>& key, const std::vector<unsigned char>& plaintext);
+
+        std::vector<unsigned char> BCC(const std::vector<unsigned char>& K, const std::vector<unsigned char>& data);
+            
+        // Helper TODO: remove it!
+        void appendBytes(std::vector<unsigned char>& dest, const std::vector<unsigned char>& src);
+
     };
 
 } // namespace rngongpu

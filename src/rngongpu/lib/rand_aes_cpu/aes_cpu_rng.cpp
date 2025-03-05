@@ -47,6 +47,55 @@ namespace rngongpu
         }
     }
 
+    std::vector<unsigned char> AESCTRRNG::Block_Encrypt(const std::vector<unsigned char>& key, const std::vector<unsigned char>& plaintext) {
+        EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+        if (!ctx) {
+            throw std::runtime_error("EVP_CIPHER_CTX_new failed");
+        }
+        
+        std::vector<unsigned char> ciphertext(plaintext.size() + EVP_MAX_BLOCK_LENGTH);
+        int len = 0, ciphertext_len = 0;
+        
+        if (1 != EVP_EncryptInit_ex(ctx, getEVPCipherECB(), nullptr, key.data(), nullptr))
+            throw std::runtime_error("EVP_EncryptInit_ex failed");
+        
+        EVP_CIPHER_CTX_set_padding(ctx, 0);
+        
+        if (1 != EVP_EncryptUpdate(ctx, ciphertext.data(), &len, plaintext.data(), plaintext.size()))
+            throw std::runtime_error("EVP_EncryptUpdate failed");
+        
+        ciphertext_len = len;
+        
+        if (1 != EVP_EncryptFinal_ex(ctx, ciphertext.data() + len, &len))
+            throw std::runtime_error("EVP_EncryptFinal_ex failed");
+        
+        ciphertext_len += len;
+        EVP_CIPHER_CTX_free(ctx);
+        
+        ciphertext.resize(ciphertext_len);
+        return ciphertext;
+    }
+
+    std::vector<unsigned char> AESCTRRNG::BCC(const std::vector<unsigned char>& K, const std::vector<unsigned char>& data) {
+        if (data.size() % keyLen != 0) {
+            throw std::runtime_error("BCC input data length is not a multiple of block size");
+        }
+        std::vector<unsigned char> X(keyLen, 0x00);
+        size_t numBlocks = data.size() / keyLen; // maybe it should not be keylen check it!
+        for (size_t i = 0; i < numBlocks; i++) {
+            std::vector<unsigned char> block(data.begin() + i * keyLen, data.begin() + (i + 1) * keyLen);
+            for (size_t j = 0; j < keyLen; j++) {
+                X[j] ^= block[j];
+            }
+            X = Block_Encrypt(K, X);
+        }
+        return X;
+    }
+
+    void AESCTRRNG::appendBytes(std::vector<unsigned char>& dest, const std::vector<unsigned char>& src) {
+        dest.insert(dest.end(), src.begin(), src.end());
+    }
+
     // DF (Derivation Function) per NIST SP 800‑90A.
     // According to NIST, the DF input should be constructed as follows:
     // [requestedOutputBits (4 bytes) || inputLengthBits (4 bytes) || input ||
@@ -56,43 +105,124 @@ namespace rngongpu
     AESCTRRNG::DF(const std::vector<unsigned char>& input,
                   std::size_t outputLen)
     {
-        unsigned int requestedBits = static_cast<unsigned int>(outputLen * 8);
-        std::vector<unsigned char> S = uint32ToBytes(requestedBits);
+        unsigned int inputBits = static_cast<unsigned int>(input.size());
+        std::vector<unsigned char> S = uint32ToBytes(inputBits);
 
-        unsigned int inputBits = static_cast<unsigned int>(input.size() * 8);
-        std::vector<unsigned char> lenBytes = uint32ToBytes(inputBits);
+        unsigned int requestedBits = static_cast<unsigned int>(outputLen);
+        std::vector<unsigned char> lenBytes = uint32ToBytes(requestedBits);
+
         S.insert(S.end(), lenBytes.begin(), lenBytes.end());
         S.insert(S.end(), input.begin(), input.end());
+        
         S.push_back(0x80);
-        while (S.size() % 16 != 0)
+        while (S.size() % outputLen != 0)
             S.push_back(0x00);
+        
+        ////////////////////////
+        std::cout << "S: " << std::endl;
+        for (unsigned char byte : S)
+        {
+            std::cout << std::hex << std::setw(2) << std::setfill('0')
+                        << static_cast<int>(byte);
+        }
+        std::cout << std::dec << std::endl << std::endl;
+        ////////////////////////
 
-        // Use a zero key whose length is equal to keyLen.
-        std::vector<unsigned char> zeroKey(keyLen, 0x00);
-        unsigned char zeroIV[16] = {0};
+        std::vector<unsigned char> temp;
+        
+        uint32_t i = 0;
+        //keyLen + 16
+        int OUTLEN = 16; // OUTLEN be its output block length
 
-        EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
-        if (!ctx)
-            throw std::runtime_error("DF: Failed to create EVP_CIPHER_CTX");
+        std::vector<unsigned char> K;
+        for (uint32_t j = 0; j < keyLen; j++) {
+            K.push_back(static_cast<unsigned char>(j));
+        }
+        
+        while (temp.size() < (keyLen + OUTLEN)) {
+            std::vector<unsigned char> IV = uint32ToBytes(i);
+            while (IV.size() < OUTLEN) {
+                IV.push_back(0x00);
+            }
+    
+            std::vector<unsigned char> dataForBCC;
+            appendBytes(dataForBCC, IV);
+            appendBytes(dataForBCC, S);
+   
+            std::vector<unsigned char> bccResult = BCC(K, dataForBCC);
+            appendBytes(temp, bccResult);
 
-        if (1 != EVP_EncryptInit_ex(ctx, getEVPCipherCBC(), nullptr,
-                                    zeroKey.data(), zeroIV))
-            throw std::runtime_error("DF: EVP_EncryptInit_ex failed");
-        EVP_CIPHER_CTX_set_padding(ctx, 0);
+            ////////////////////////
+            std::cout << "temp: " << std::endl;
+            for (unsigned char byte : temp)
+            {
+                std::cout << std::hex << std::setw(2) << std::setfill('0')
+                            << static_cast<int>(byte);
+            }
+            std::cout << std::dec << std::endl << std::endl;
+            ////////////////////////
+            
+            i++;
+        }
+        
 
-        std::vector<unsigned char> cipher(S.size() + 16);
-        int outlen1 = 0, outlen2 = 0;
-        if (1 !=
-            EVP_EncryptUpdate(ctx, cipher.data(), &outlen1, S.data(), S.size()))
-            throw std::runtime_error("DF: EVP_EncryptUpdate failed");
-        if (1 != EVP_EncryptFinal_ex(ctx, cipher.data() + outlen1, &outlen2))
-            throw std::runtime_error("DF: EVP_EncryptFinal_ex failed");
-        EVP_CIPHER_CTX_free(ctx);
+        std::vector<unsigned char> newK(temp.begin(), temp.begin() + keyLen);
+        K = newK;
+        
+        std::vector<unsigned char> X(temp.begin() + keyLen, temp.begin() + keyLen + OUTLEN);
 
-        cipher.resize(outlen1 + outlen2);
-        if (cipher.size() > outputLen)
-            cipher.resize(outputLen);
-        return cipher;
+        ////////////////////////
+        std::cout << "K: " << std::endl;
+        for (unsigned char byte : K)
+        {
+            std::cout << std::hex << std::setw(2) << std::setfill('0')
+                        << static_cast<int>(byte);
+        }
+        std::cout << std::dec << std::endl << std::endl;
+        ////////////////////////
+        ////////////////////////
+        std::cout << "X: " << std::endl;
+        for (unsigned char byte : X)
+        {
+            std::cout << std::hex << std::setw(2) << std::setfill('0')
+                        << static_cast<int>(byte);
+        }
+        std::cout << std::dec << std::endl << std::endl;
+        ////////////////////////
+        
+  
+        temp.clear();
+        
+  
+        while (temp.size() < outputLen) {
+ 
+            X = Block_Encrypt(K, X);
+   
+            appendBytes(temp, X);
+            ////////////////////////
+            std::cout << "temp: " << std::endl;
+            for (unsigned char byte : temp)
+            {
+                std::cout << std::hex << std::setw(2) << std::setfill('0')
+                            << static_cast<int>(byte);
+            }
+            std::cout << std::dec << std::endl << std::endl;
+            ////////////////////////
+        }
+        
+        std::vector<unsigned char> requested_bits(temp.begin(), temp.begin() + outputLen);
+
+        ////////////////////////
+        std::cout << "requested_bits: " << std::endl;
+        for (unsigned char byte : requested_bits)
+        {
+            std::cout << std::hex << std::setw(2) << std::setfill('0')
+                        << static_cast<int>(byte);
+        }
+        std::cout << std::dec << std::endl << std::endl;
+        ////////////////////////
+
+        return requested_bits;
     }
 
     // CTR_DRBG_Update updates the internal state as per NIST SP 800‑90A:
@@ -218,12 +348,53 @@ namespace rngongpu
         std::vector<unsigned char> seed_material = entropyInput;
         seed_material.insert(seed_material.end(), nonce.begin(), nonce.end());
         seed_material.insert(seed_material.end(), personalizationString.begin(),
-                             personalizationString.end());
+                             personalizationString.end()); // It's OK!
+
+        std::cout << "seed_material: " << std::endl;
+        for (unsigned char byte : seed_material)
+        {
+            std::cout << std::hex << std::setw(2) << std::setfill('0')
+                        << static_cast<int>(byte);
+        }
+        std::cout << std::dec << std::endl << std::endl;
 
         // Derive seed using DF.
         std::vector<unsigned char> seed = DF(seed_material, seedLen);
-        key.assign(seed.begin(), seed.begin() + keyLen);
-        V.assign(seed.begin() + keyLen, seed.end());
+
+        std::cout << "DF result(seed): " << std::endl;
+        for (unsigned char byte : seed)
+        {
+            std::cout << std::hex << std::setw(2) << std::setfill('0')
+                        << static_cast<int>(byte);
+        }
+        std::cout << std::dec << std::endl << std::endl;
+
+        
+
+        key = std::vector<unsigned char>(keyLen, 0);
+        V = std::vector<unsigned char>(16, 0);
+
+        CTR_DRBG_Update(seed);
+
+        ////////////////////////
+        std::cout << "key: " << std::endl;
+        for (unsigned char byte : key)
+        {
+            std::cout << std::hex << std::setw(2) << std::setfill('0')
+                        << static_cast<int>(byte);
+        }
+        std::cout << std::dec << std::endl << std::endl;
+        ////////////////////////
+
+        ////////////////////////
+        std::cout << "V: " << std::endl;
+        for (unsigned char byte : V)
+        {
+            std::cout << std::hex << std::setw(2) << std::setfill('0')
+                        << static_cast<int>(byte);
+        }
+        std::cout << std::dec << std::endl << std::endl;
+        ////////////////////////
     }
 
     // Reseed: Gathers new entropy and optional additional input.
@@ -279,13 +450,13 @@ namespace rngongpu
             incrementV();
 
             ///////////////////////////
-            std::cout << output.size() << " -> ";
-            for (unsigned char byte : key)
-            {
-                std::cout << std::hex << std::setw(2) << std::setfill('0')
-                          << static_cast<int>(byte);
-            }
-            std::cout << std::dec << std::endl;
+            //std::cout << output.size() << " -> ";
+            //for (unsigned char byte : key)
+            //{
+            //    std::cout << std::hex << std::setw(2) << std::setfill('0')
+            //              << static_cast<int>(byte);
+            //}
+            //std::cout << std::dec << std::endl;
 
             ///////////////////////////
 
