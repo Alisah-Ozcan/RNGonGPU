@@ -4,18 +4,19 @@
 
 using namespace rngongpu;
 
-void run_rng_example_XORWOW() {
+void run_rng_example_XORWOW()
+{
     std::cout << "=== Testing XORWOW Generator ===\n";
     unsigned long long seed = 12345ULL;
     CudarandRNG<curandStateXORWOW_t> rng(seed);
     const int N = 10;
 
     // Allocate device memory.
-    Data32* d_randomInts   = nullptr;
+    Data32* d_randomInts = nullptr;
     Data64* d_randomInts64 = nullptr;
-    f32*    d_randomFloats = nullptr;
-    f64*    d_randomDoubles = nullptr;
-    cudaMalloc(&d_randomInts,   N * sizeof(Data32));
+    f32* d_randomFloats = nullptr;
+    f64* d_randomDoubles = nullptr;
+    cudaMalloc(&d_randomInts, N * sizeof(Data32));
     cudaMalloc(&d_randomInts64, N * sizeof(Data64));
     cudaMalloc(&d_randomFloats, N * sizeof(f32));
     cudaMalloc(&d_randomDoubles, N * sizeof(f64));
@@ -29,12 +30,16 @@ void run_rng_example_XORWOW() {
     // Copy results back to host.
     Data32 h_randomInts[N];
     Data64 h_randomInts64[N];
-    f32    h_randomFloats[N];
-    f64    h_randomDoubles[N];
-    cudaMemcpy(h_randomInts,   d_randomInts,   N * sizeof(Data32), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_randomInts64, d_randomInts64, N * sizeof(Data64), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_randomFloats, d_randomFloats, N * sizeof(f32),    cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_randomDoubles,d_randomDoubles,N * sizeof(f64),    cudaMemcpyDeviceToHost);
+    f32 h_randomFloats[N];
+    f64 h_randomDoubles[N];
+    cudaMemcpy(h_randomInts, d_randomInts, N * sizeof(Data32),
+               cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_randomInts64, d_randomInts64, N * sizeof(Data64),
+               cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_randomFloats, d_randomFloats, N * sizeof(f32),
+               cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_randomDoubles, d_randomDoubles, N * sizeof(f64),
+               cudaMemcpyDeviceToHost);
 
     // Print non-modulo random numbers.
     std::cout << "Non-modulo random 32-bit integers:\n";
@@ -54,9 +59,9 @@ void run_rng_example_XORWOW() {
     // Test modulo versions.
     Modulus32 mod32(100);
     Modulus64 mod64(1000);
-    Data32* d_randomInts_mod   = nullptr;
+    Data32* d_randomInts_mod = nullptr;
     Data64* d_randomInts64_mod = nullptr;
-    cudaMalloc(&d_randomInts_mod,   N * sizeof(Data32));
+    cudaMalloc(&d_randomInts_mod, N * sizeof(Data32));
     cudaMalloc(&d_randomInts64_mod, N * sizeof(Data64));
 
     rng.gen_random_u32_mod_p(N, &mod32, d_randomInts_mod);
@@ -64,8 +69,10 @@ void run_rng_example_XORWOW() {
 
     Data32 h_randomInts_mod[N];
     Data64 h_randomInts64_mod[N];
-    cudaMemcpy(h_randomInts_mod,   d_randomInts_mod,   N * sizeof(Data32), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_randomInts64_mod, d_randomInts64_mod, N * sizeof(Data64), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_randomInts_mod, d_randomInts_mod, N * sizeof(Data32),
+               cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_randomInts64_mod, d_randomInts64_mod, N * sizeof(Data64),
+               cudaMemcpyDeviceToHost);
 
     std::cout << "Modulo random 32-bit integers (mod 100):\n";
     for (int i = 0; i < N; ++i)
@@ -77,13 +84,15 @@ void run_rng_example_XORWOW() {
 
     // Test modulo version with an array of moduli.
     const int numMods = 3;
-    Modulus32 mod32_arr[numMods] = { Modulus32(100), Modulus32(200), Modulus32(300) };
+    Modulus32 mod32_arr[numMods] = {Modulus32(100), Modulus32(200),
+                                    Modulus32(300)};
     Data32* d_randomInts_mod_arr = nullptr;
     cudaMalloc(&d_randomInts_mod_arr, N * sizeof(Data32));
     rng.gen_random_u32_mod_p(N, mod32_arr, numMods, d_randomInts_mod_arr);
 
     Data32 h_randomInts_mod_arr[N];
-    cudaMemcpy(h_randomInts_mod_arr, d_randomInts_mod_arr, N * sizeof(Data32), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_randomInts_mod_arr, d_randomInts_mod_arr, N * sizeof(Data32),
+               cudaMemcpyDeviceToHost);
     std::cout << "Modulo array random 32-bit integers (mod 100, 200, 300):\n";
     for (int i = 0; i < N; ++i)
         std::cout << h_randomInts_mod_arr[i] << " ";
@@ -99,20 +108,21 @@ void run_rng_example_XORWOW() {
     cudaFree(d_randomInts_mod_arr);
 }
 
-void run_rng_example_MRG32k3a() {
+void run_rng_example_MRG32k3a()
+{
     std::cout << "\n=== Testing MRG32k3a Generator ===\n";
     unsigned long long seed = 54321ULL;
     CudarandRNG<curandStateMRG32k3a_t> rng(seed);
     const int N = 10;
 
-    Data32* d_randomInts   = nullptr;
+    Data32* d_randomInts = nullptr;
     Data64* d_randomInts64 = nullptr;
-    f32*    d_randomFloats = nullptr;
-    f64*    d_randomDoubles= nullptr;
-    cudaMalloc(&d_randomInts,   N * sizeof(Data32));
+    f32* d_randomFloats = nullptr;
+    f64* d_randomDoubles = nullptr;
+    cudaMalloc(&d_randomInts, N * sizeof(Data32));
     cudaMalloc(&d_randomInts64, N * sizeof(Data64));
     cudaMalloc(&d_randomFloats, N * sizeof(f32));
-    cudaMalloc(&d_randomDoubles,N * sizeof(f64));
+    cudaMalloc(&d_randomDoubles, N * sizeof(f64));
 
     rng.gen_random_u32(N, d_randomInts);
     rng.gen_random_u64(N, d_randomInts64);
@@ -121,12 +131,16 @@ void run_rng_example_MRG32k3a() {
 
     Data32 h_randomInts[N];
     Data64 h_randomInts64[N];
-    f32    h_randomFloats[N];
-    f64    h_randomDoubles[N];
-    cudaMemcpy(h_randomInts,   d_randomInts,   N * sizeof(Data32), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_randomInts64, d_randomInts64, N * sizeof(Data64), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_randomFloats, d_randomFloats, N * sizeof(f32),    cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_randomDoubles,d_randomDoubles,N * sizeof(f64),    cudaMemcpyDeviceToHost);
+    f32 h_randomFloats[N];
+    f64 h_randomDoubles[N];
+    cudaMemcpy(h_randomInts, d_randomInts, N * sizeof(Data32),
+               cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_randomInts64, d_randomInts64, N * sizeof(Data64),
+               cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_randomFloats, d_randomFloats, N * sizeof(f32),
+               cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_randomDoubles, d_randomDoubles, N * sizeof(f64),
+               cudaMemcpyDeviceToHost);
 
     std::cout << "Non-modulo random 32-bit integers:\n";
     for (int i = 0; i < N; ++i)
@@ -148,20 +162,21 @@ void run_rng_example_MRG32k3a() {
     cudaFree(d_randomDoubles);
 }
 
-void run_rng_example_Philox() {
+void run_rng_example_Philox()
+{
     std::cout << "\n=== Testing Philox Generator ===\n";
     unsigned long long seed = 98765ULL;
     CudarandRNG<curandStatePhilox4_32_10_t> rng(seed);
     const int N = 10;
 
-    Data32* d_randomInts   = nullptr;
+    Data32* d_randomInts = nullptr;
     Data64* d_randomInts64 = nullptr;
-    f32*    d_randomFloats = nullptr;
-    f64*    d_randomDoubles= nullptr;
-    cudaMalloc(&d_randomInts,   N * sizeof(Data32));
+    f32* d_randomFloats = nullptr;
+    f64* d_randomDoubles = nullptr;
+    cudaMalloc(&d_randomInts, N * sizeof(Data32));
     cudaMalloc(&d_randomInts64, N * sizeof(Data64));
     cudaMalloc(&d_randomFloats, N * sizeof(f32));
-    cudaMalloc(&d_randomDoubles,N * sizeof(f64));
+    cudaMalloc(&d_randomDoubles, N * sizeof(f64));
 
     rng.gen_random_u32(N, d_randomInts);
     rng.gen_random_u64(N, d_randomInts64);
@@ -170,12 +185,16 @@ void run_rng_example_Philox() {
 
     Data32 h_randomInts[N];
     Data64 h_randomInts64[N];
-    f32    h_randomFloats[N];
-    f64    h_randomDoubles[N];
-    cudaMemcpy(h_randomInts,   d_randomInts,   N * sizeof(Data32), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_randomInts64, d_randomInts64, N * sizeof(Data64), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_randomFloats, d_randomFloats, N * sizeof(f32),    cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_randomDoubles,d_randomDoubles,N * sizeof(f64),    cudaMemcpyDeviceToHost);
+    f32 h_randomFloats[N];
+    f64 h_randomDoubles[N];
+    cudaMemcpy(h_randomInts, d_randomInts, N * sizeof(Data32),
+               cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_randomInts64, d_randomInts64, N * sizeof(Data64),
+               cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_randomFloats, d_randomFloats, N * sizeof(f32),
+               cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_randomDoubles, d_randomDoubles, N * sizeof(f64),
+               cudaMemcpyDeviceToHost);
 
     std::cout << "Non-modulo random 32-bit integers:\n";
     for (int i = 0; i < N; ++i)
@@ -197,7 +216,8 @@ void run_rng_example_Philox() {
     cudaFree(d_randomDoubles);
 }
 
-int main() {
+int main()
+{
     run_rng_example_XORWOW();
     run_rng_example_MRG32k3a();
     run_rng_example_Philox();

@@ -22,7 +22,7 @@ namespace rngongpu
         for (unsigned char byte : key)
         {
             std::cout << std::hex << std::setw(2) << std::setfill('0')
-                        << static_cast<int>(byte);
+                      << static_cast<int>(byte);
         }
         std::cout << std::dec << std::endl << std::endl;
 
@@ -30,7 +30,7 @@ namespace rngongpu
         for (unsigned char byte : V)
         {
             std::cout << std::hex << std::setw(2) << std::setfill('0')
-                        << static_cast<int>(byte);
+                      << static_cast<int>(byte);
         }
         std::cout << std::dec << std::endl << std::endl;
     }
@@ -41,7 +41,8 @@ namespace rngongpu
         const std::vector<unsigned char>& personalization_string,
         SecurityLevel sec_level, bool prediction_resistance)
         : security_level(sec_level),
-          prediction_resistance_enabled(prediction_resistance), reseed_counter(1)
+          prediction_resistance_enabled(prediction_resistance),
+          reseed_counter(1)
     {
         validate_entropy(entropy_input);
         // Set key_len based on security level.
@@ -63,17 +64,18 @@ namespace rngongpu
 
         std::vector<unsigned char> seed_material = entropy_input;
         seed_material.insert(seed_material.end(), nonce.begin(), nonce.end());
-        seed_material.insert(seed_material.end(), personalization_string.begin(),
-                                                  personalization_string.end()); // It's OK!
+        seed_material.insert(seed_material.end(),
+                             personalization_string.begin(),
+                             personalization_string.end()); // It's OK!
 
-        std::vector<unsigned char> seed = derivation_function(seed_material, seed_len);
+        std::vector<unsigned char> seed =
+            derivation_function(seed_material, seed_len);
 
         key = std::vector<unsigned char>(key_len, 0);
         V = std::vector<unsigned char>(16, 0);
 
         update(seed);
     }
-
 
     void AESCTRRNG::reseed(const std::vector<unsigned char>& additional_input)
     {
@@ -85,25 +87,29 @@ namespace rngongpu
         seed_material.insert(seed_material.end(), additional_input.begin(),
                              additional_input.end());
 
-        std::vector<unsigned char> seed = derivation_function(seed_material, seed_len);
+        std::vector<unsigned char> seed =
+            derivation_function(seed_material, seed_len);
         update(seed);
         reseed_counter = 1;
     }
 
-    void AESCTRRNG::reseed(const std::vector<unsigned char>& entropy_input, const std::vector<unsigned char>& additional_input){
+    void AESCTRRNG::reseed(const std::vector<unsigned char>& entropy_input,
+                           const std::vector<unsigned char>& additional_input)
+    {
         std::vector<unsigned char> seed_material = entropy_input;
         seed_material.insert(seed_material.end(), additional_input.begin(),
                              additional_input.end());
 
-        std::vector<unsigned char> seed = derivation_function(seed_material, seed_len);
+        std::vector<unsigned char> seed =
+            derivation_function(seed_material, seed_len);
         update(seed);
         reseed_counter = 1;
     }
 
-    std::vector<unsigned char> AESCTRRNG::generate_bytes(std::size_t requested_number_of_bytes)
+    std::vector<unsigned char>
+    AESCTRRNG::generate_bytes(std::size_t requested_number_of_bytes)
     {
-        if (prediction_resistance_enabled ||
-            reseed_counter >= RESEED_INTERVAL)
+        if (prediction_resistance_enabled || reseed_counter >= RESEED_INTERVAL)
         {
             reseed();
         }
@@ -128,21 +134,23 @@ namespace rngongpu
         {
             incrementV();
 
-            if (1 != EVP_EncryptUpdate(ctx, block.data(), &outlen, V.data(), block_len))
+            if (1 != EVP_EncryptUpdate(ctx, block.data(), &outlen, V.data(),
+                                       block_len))
             {
-                throw std::runtime_error("getRandomBytes: EVP_EncryptUpdate failed");
+                throw std::runtime_error(
+                    "getRandomBytes: EVP_EncryptUpdate failed");
             }
-                
+
             if (outlen != static_cast<int>(block_len))
             {
-                throw std::runtime_error("getRandomBytes: Unexpected block size");
+                throw std::runtime_error(
+                    "getRandomBytes: Unexpected block size");
             }
-                
+
             output.insert(output.end(), block.begin(), block.end());
         }
         EVP_CIPHER_CTX_free(ctx);
 
-        
         output.resize(requested_number_of_bytes);
 
         update(std::vector<unsigned char>());
@@ -152,11 +160,11 @@ namespace rngongpu
         return output;
     }
 
-    std::vector<unsigned char> AESCTRRNG::generate_bytes(std::size_t requested_number_of_bytes, const std::vector<unsigned char>& additional_input)
+    std::vector<unsigned char> AESCTRRNG::generate_bytes(
+        std::size_t requested_number_of_bytes,
+        const std::vector<unsigned char>& additional_input)
     {
-
-        if (prediction_resistance_enabled ||
-            reseed_counter >= RESEED_INTERVAL)
+        if (prediction_resistance_enabled || reseed_counter >= RESEED_INTERVAL)
         {
             reseed(additional_input);
         }
@@ -164,9 +172,11 @@ namespace rngongpu
         std::vector<unsigned char> additional_input_in;
         if (additional_input.size() != 0)
         {
-            additional_input_in = derivation_function(additional_input, seed_len);
+            additional_input_in =
+                derivation_function(additional_input, seed_len);
             update(additional_input_in);
-        } else 
+        }
+        else
         {
             additional_input_in = std::vector<unsigned char>(seed_len, 0);
         }
@@ -176,13 +186,11 @@ namespace rngongpu
 
         EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
         if (!ctx)
-            throw std::runtime_error(
-                "getRandomBytes: Failed to create EVP_CIPHER_CTX");
+            throw std::runtime_error("Failed to create EVP_CIPHER_CTX");
 
         if (1 != EVP_EncryptInit_ex(ctx, getEVPCipherECB(), nullptr, key.data(),
                                     nullptr))
-            throw std::runtime_error(
-                "getRandomBytes: EVP_EncryptInit_ex failed");
+            throw std::runtime_error("EVP_EncryptInit_ex failed");
         EVP_CIPHER_CTX_set_padding(ctx, 0);
 
         std::vector<unsigned char> block(block_len);
@@ -193,31 +201,29 @@ namespace rngongpu
 
             if (1 != EVP_EncryptUpdate(ctx, block.data(), &outlen, V.data(),
                                        block_len))
-                throw std::runtime_error(
-                    "getRandomBytes: EVP_EncryptUpdate failed");
+                throw std::runtime_error("EVP_EncryptUpdate failed");
 
             if (outlen != static_cast<int>(block_len))
-                throw std::runtime_error(
-                    "getRandomBytes: Unexpected block size");
+                throw std::runtime_error("Unexpected block size");
 
             temp.insert(temp.end(), block.begin(), block.end());
-
         }
         EVP_CIPHER_CTX_free(ctx);
         temp.resize(requested_number_of_bytes);
 
         update(additional_input_in);
-        
+
         reseed_counter++;
 
-        return temp;        
+        return temp;
     }
 
-    std::vector<unsigned char> AESCTRRNG::generate_bytes(std::size_t requested_number_of_bytes, const std::vector<unsigned char>& entropy_input, const std::vector<unsigned char>& additional_input)
+    std::vector<unsigned char> AESCTRRNG::generate_bytes(
+        std::size_t requested_number_of_bytes,
+        const std::vector<unsigned char>& entropy_input,
+        const std::vector<unsigned char>& additional_input)
     {
-
-        if (prediction_resistance_enabled ||
-            reseed_counter >= RESEED_INTERVAL)
+        if (prediction_resistance_enabled || reseed_counter >= RESEED_INTERVAL)
         {
             reseed(entropy_input, additional_input);
         }
@@ -225,9 +231,11 @@ namespace rngongpu
         std::vector<unsigned char> additional_input_in;
         if (additional_input.size() != 0)
         {
-            additional_input_in = derivation_function(additional_input, seed_len);
+            additional_input_in =
+                derivation_function(additional_input, seed_len);
             update(additional_input_in);
-        } else 
+        }
+        else
         {
             additional_input_in = std::vector<unsigned char>(seed_len, 0);
         }
@@ -262,50 +270,54 @@ namespace rngongpu
                     "getRandomBytes: Unexpected block size");
 
             temp.insert(temp.end(), block.begin(), block.end());
-
         }
         EVP_CIPHER_CTX_free(ctx);
         temp.resize(requested_number_of_bytes);
 
         update(additional_input_in);
-        
+
         reseed_counter++;
 
-        return temp;        
+        return temp;
     }
 
-    std::vector<unsigned char>
-    AESCTRRNG::derivation_function(const std::vector<unsigned char>& input_string, std::size_t no_of_bits_to_return)
+    std::vector<unsigned char> AESCTRRNG::derivation_function(
+        const std::vector<unsigned char>& input_string,
+        std::size_t no_of_bits_to_return)
     {
-        
-        unsigned int input_bits = static_cast<unsigned int>(input_string.size());
+        unsigned int input_bits =
+            static_cast<unsigned int>(input_string.size());
         std::vector<unsigned char> S = uint32ToBytes(input_bits);
 
-        unsigned int requested_bit = static_cast<unsigned int>(no_of_bits_to_return);
+        unsigned int requested_bit =
+            static_cast<unsigned int>(no_of_bits_to_return);
         std::vector<unsigned char> len_bytes = uint32ToBytes(requested_bit);
 
         S.insert(S.end(), len_bytes.begin(), len_bytes.end());
         S.insert(S.end(), input_string.begin(), input_string.end());
-        
+
         S.push_back(0x80);
         while (S.size() % out_len != 0)
             S.push_back(0x00);
 
         std::vector<unsigned char> temp;
-        
+
         uint32_t i = 0;
-       
+
         std::vector<unsigned char> K;
-        for (uint32_t j = 0; j < key_len; j++) {
+        for (uint32_t j = 0; j < key_len; j++)
+        {
             K.push_back(static_cast<unsigned char>(j));
         }
-        
-        while (temp.size() < (key_len + out_len)) {
+
+        while (temp.size() < (key_len + out_len))
+        {
             std::vector<unsigned char> IV = uint32ToBytes(i);
-            while (IV.size() < out_len) {
+            while (IV.size() < out_len)
+            {
                 IV.push_back(0x00);
             }
-    
+
             std::vector<unsigned char> dataForBCC;
             dataForBCC.insert(dataForBCC.end(), IV.begin(), IV.end());
             dataForBCC.insert(dataForBCC.end(), S.begin(), S.end());
@@ -314,27 +326,28 @@ namespace rngongpu
             temp.insert(temp.end(), bccResult.begin(), bccResult.end());
             i++;
         }
-        
 
         std::vector<unsigned char> newK(temp.begin(), temp.begin() + key_len);
         K = newK;
-        
-        std::vector<unsigned char> X(temp.begin() + key_len, temp.begin() + key_len + out_len);
-  
+
+        std::vector<unsigned char> X(temp.begin() + key_len,
+                                     temp.begin() + key_len + out_len);
+
         temp.clear();
-        
-        while (temp.size() < no_of_bits_to_return) {
+
+        while (temp.size() < no_of_bits_to_return)
+        {
             X = block_encrypt(K, X);
             temp.insert(temp.end(), X.begin(), X.end());
         }
-        
-        std::vector<unsigned char> requested_bits(temp.begin(), temp.begin() + no_of_bits_to_return);
+
+        std::vector<unsigned char> requested_bits(
+            temp.begin(), temp.begin() + no_of_bits_to_return);
 
         return requested_bits;
     }
 
-    void
-    AESCTRRNG::update(const std::vector<unsigned char>& provided_data)
+    void AESCTRRNG::update(const std::vector<unsigned char>& provided_data)
     {
         const std::size_t seedlen = seed_len;
         std::vector<unsigned char> temp;
@@ -342,13 +355,11 @@ namespace rngongpu
 
         EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
         if (!ctx)
-            throw std::runtime_error(
-                "update: Failed to create EVP_CIPHER_CTX");
+            throw std::runtime_error("update: Failed to create EVP_CIPHER_CTX");
 
         if (1 != EVP_EncryptInit_ex(ctx, getEVPCipherECB(), nullptr, key.data(),
                                     nullptr))
-            throw std::runtime_error(
-                "update: EVP_EncryptInit_ex failed");
+            throw std::runtime_error("update: EVP_EncryptInit_ex failed");
         EVP_CIPHER_CTX_set_padding(ctx, 0);
 
         std::vector<unsigned char> outputBlock(block_len);
@@ -363,11 +374,9 @@ namespace rngongpu
             int outlen = 0;
             if (1 != EVP_EncryptUpdate(ctx, outputBlock.data(), &outlen,
                                        Vtemp.data(), block_len))
-                throw std::runtime_error(
-                    "update: EVP_EncryptUpdate failed");
+                throw std::runtime_error("update: EVP_EncryptUpdate failed");
             if (outlen != static_cast<int>(block_len))
-                throw std::runtime_error(
-                    "update: Unexpected block size");
+                throw std::runtime_error("update: Unexpected block size");
             temp.insert(temp.end(), outputBlock.begin(), outputBlock.end());
         }
         EVP_CIPHER_CTX_free(ctx);
@@ -396,15 +405,13 @@ namespace rngongpu
         }
     }
 
-    void AESCTRRNG::validate_entropy(
-        const std::vector<unsigned char>& entropy_input)
+    void
+    AESCTRRNG::validate_entropy(const std::vector<unsigned char>& entropy_input)
     {
         if (entropy_input.size() < 16)
             throw std::runtime_error(
                 "Insufficient entropy: minimum 16 bytes required");
     }
-
-    
 
     const EVP_CIPHER* AESCTRRNG::getEVPCipherCBC() const
     {
@@ -436,44 +443,59 @@ namespace rngongpu
         }
     }
 
-    std::vector<unsigned char> AESCTRRNG::block_encrypt(const std::vector<unsigned char>& key, const std::vector<unsigned char>& plaintext) {
-        EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-        if (!ctx) {
+    std::vector<unsigned char>
+    AESCTRRNG::block_encrypt(const std::vector<unsigned char>& key,
+                             const std::vector<unsigned char>& plaintext)
+    {
+        EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+        if (!ctx)
+        {
             throw std::runtime_error("EVP_CIPHER_CTX_new failed");
         }
-        
-        std::vector<unsigned char> ciphertext(plaintext.size() + EVP_MAX_BLOCK_LENGTH);
+
+        std::vector<unsigned char> ciphertext(plaintext.size() +
+                                              EVP_MAX_BLOCK_LENGTH);
         int len = 0, ciphertext_len = 0;
-        
-        if (1 != EVP_EncryptInit_ex(ctx, getEVPCipherECB(), nullptr, key.data(), nullptr))
+
+        if (1 != EVP_EncryptInit_ex(ctx, getEVPCipherECB(), nullptr, key.data(),
+                                    nullptr))
             throw std::runtime_error("EVP_EncryptInit_ex failed");
-        
+
         EVP_CIPHER_CTX_set_padding(ctx, 0);
-        
-        if (1 != EVP_EncryptUpdate(ctx, ciphertext.data(), &len, plaintext.data(), plaintext.size()))
+
+        if (1 != EVP_EncryptUpdate(ctx, ciphertext.data(), &len,
+                                   plaintext.data(), plaintext.size()))
             throw std::runtime_error("EVP_EncryptUpdate failed");
-        
+
         ciphertext_len = len;
-        
+
         if (1 != EVP_EncryptFinal_ex(ctx, ciphertext.data() + len, &len))
             throw std::runtime_error("EVP_EncryptFinal_ex failed");
-        
+
         ciphertext_len += len;
         EVP_CIPHER_CTX_free(ctx);
-        
+
         ciphertext.resize(ciphertext_len);
         return ciphertext;
     }
 
-    std::vector<unsigned char> AESCTRRNG::BCC(const std::vector<unsigned char>& key, const std::vector<unsigned char>& data) {
-        if (data.size() % out_len != 0) {
-            throw std::runtime_error("BCC input data length is not a multiple of block size");
+    std::vector<unsigned char>
+    AESCTRRNG::BCC(const std::vector<unsigned char>& key,
+                   const std::vector<unsigned char>& data)
+    {
+        if (data.size() % out_len != 0)
+        {
+            throw std::runtime_error(
+                "BCC input data length is not a multiple of block size");
         }
         std::vector<unsigned char> X(out_len, 0x00);
-        size_t num_blocks = data.size() / out_len; 
-        for (size_t i = 0; i < num_blocks; i++) {
-            std::vector<unsigned char> block(data.begin() + i * out_len, data.begin() + (i + 1) * out_len);
-            for (size_t j = 0; j < out_len; j++) {
+        size_t num_blocks = data.size() / out_len;
+        for (size_t i = 0; i < num_blocks; i++)
+        {
+            std::vector<unsigned char> block(data.begin() + i * out_len,
+                                             data.begin() + (i + 1) * out_len);
+            for (size_t j = 0; j < out_len; j++)
+            {
                 X[j] ^= block[j];
             }
             X = block_encrypt(key, X);
