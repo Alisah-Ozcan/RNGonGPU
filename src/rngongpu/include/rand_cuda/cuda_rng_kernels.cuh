@@ -2,8 +2,8 @@
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef CudarandRNG_kernels_H
-#define CudarandRNG_kernels_H
+#ifndef CUDA_RNG_KERNEL_H
+#define CUDA_RNG_KERNEL_H
 
 #include <cassert>
 #include <exception>
@@ -13,41 +13,84 @@
 #include <curand_kernel.h>
 #include <curand_mtgp32_host.h>
 #include <curand_mtgp32dc_p_11213.h>
-#include "aes.cuh"   // Assumes definitions for Data32, Data64, f32, and f64
+#include "aes.cuh"
 
-namespace rngongpu {
+namespace rngongpu
+{
+    template <typename State>
+    __global__ void init_state_kernel(State* state, Data64 seed);
 
-//======================================================================
-// Configuration Constants
-//======================================================================
-extern const int  BLOCKS;            // defined in the CU file
-extern const int  THREADS_PER_BLOCK; // defined in the CU file
-extern const int  TOTAL_THREADS;     // defined in the CU file
+    // -
 
-//======================================================================
-// Templated Kernel Declarations
-//======================================================================
+    template <typename State, typename T>
+    __global__ void
+    uniform_random_number_generation_kernel(State* state, T* pointer,
+                                            Data64 size, int max_state_num);
 
-// Initialization kernel
-template <typename RNGState>
-__global__ void init_states(RNGState *states, Data64 baseSeed);
+    template <typename State, typename T>
+    __global__ void
+    uniform_random_number_generation_kernel(State* state, T* pointer,
+                                            Modulus<T> modulus, Data64 size,
+                                            int max_state_num);
 
-// 32-bit Uniform Random Number Generation Kernel
-template <typename RNGState>
-__global__ void generate_uniform_32(RNGState *states, Data32 *random_numbers, int n);
+    template <typename State, typename T>
+    __global__ void uniform_random_number_generation_kernel(
+        State* state, T* pointer, Modulus<T>* modulus, Data64 log_size,
+        int mod_count, int repeat_count, int max_state_num);
 
-// 64-bit Uniform Random Number Generation Kernel
-template <typename RNGState>
-__global__ void generate_uniform_64(RNGState *states, Data64 *random_numbers, int n);
+    template <typename State, typename T>
+    __global__ void uniform_random_number_generation_kernel(
+        State* state, T* pointer, Modulus<T>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count, int max_state_num);
 
-// 32-bit Normal (Gaussian) Random Number Generation Kernel
-template <typename RNGState>
-__global__ void generate_normal_32(RNGState *states, f32 *random_numbers, int n);
+    // -
 
-// 64-bit Normal (Gaussian) Random Number Generation Kernel
-template <typename RNGState>
-__global__ void generate_normal_64(RNGState *states, f64 *random_numbers, int n);
+    template <typename State, typename T>
+    __global__ void
+    normal_random_number_generation_kernel(State* state, T std_dev, T* pointer,
+                                           Data64 size, int max_state_num);
+
+    template <typename State, typename T, typename U>
+    __global__ void
+    normal_random_number_generation_kernel(State* state, U std_dev, T* pointer,
+                                           Modulus<T> modulus, Data64 size,
+                                           int max_state_num);
+
+    template <typename State, typename T, typename U>
+    __global__ void normal_random_number_generation_kernel(
+        State* state, U std_dev, T* pointer, Modulus<T>* modulus,
+        Data64 log_size, int mod_count, int repeat_count, int max_state_num);
+
+    template <typename State, typename T, typename U>
+    __global__ void
+    normal_random_number_generation_kernel(State* state, U std_dev, T* pointer,
+                                           Modulus<T>* modulus, Data64 log_size,
+                                           int mod_count, int* mod_index,
+                                           int repeat_count, int max_state_num);
+
+    // -
+
+    template <typename State, typename T>
+    __global__ void
+    ternary_random_number_generation_kernel(State* state, T* pointer,
+                                            Data64 size, int max_state_num);
+
+    template <typename State, typename T>
+    __global__ void
+    ternary_random_number_generation_kernel(State* state, T* pointer,
+                                            Modulus<T> modulus, Data64 size,
+                                            int max_state_num);
+
+    template <typename State, typename T>
+    __global__ void ternary_random_number_generation_kernel(
+        State* state, T* pointer, Modulus<T>* modulus, Data64 log_size,
+        int mod_count, int repeat_count, int max_state_num);
+
+    template <typename State, typename T>
+    __global__ void ternary_random_number_generation_kernel(
+        State* state, T* pointer, Modulus<T>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count, int max_state_num);
 
 } // end namespace rngongpu
 
-#endif // CudarandRNG_kernels_H
+#endif // CUDA_RNG_KERNEL_H

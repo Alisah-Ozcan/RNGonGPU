@@ -135,5 +135,5 @@ int main()
     std::cout << " -- CASE 2 -- " << std::endl;
     case2();
 
-    return 0;
+    return EXIT_SUCCESS;
 }

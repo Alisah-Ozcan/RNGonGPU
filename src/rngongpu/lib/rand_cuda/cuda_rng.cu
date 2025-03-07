@@ -5,186 +5,572 @@
 
 #include "cuda_rng.cuh"
 
-namespace rngongpu {
-
-template <typename RNGState>
-CudarandRNG<RNGState>::CudarandRNG(Data64 seed)
-    : baseSeed(seed),
-      d_states(nullptr),
-      numStates(rngongpu::TOTAL_THREADS),
-      mtgp32_numStates(0)
+namespace rngongpu
 {
-    // Allocate memory for RNG states on the device.
-    cudaError_t err = cudaMalloc(&d_states, numStates * sizeof(RNGState));
-    if (err != cudaSuccess) {
-        std::cerr << "Error allocating device memory for states: " 
-                  << cudaGetErrorString(err) << std::endl;
-        d_states = nullptr;
+    template <typename State> RNG<Mode::CUDA, State>::RNG(Data64 seed)
+    {
+        RNGTraits<Mode::CUDA, State>::initialize(*this, seed);
     }
-    initState();
-}
 
-template <typename RNGState>
-CudarandRNG<RNGState>::~CudarandRNG() {
-    if (d_states) {
-        cudaFree(d_states);
-        d_states = nullptr;
+    template <typename State> RNG<Mode::CUDA, State>::~RNG()
+    {
+        RNGTraits<Mode::CUDA, State>::clear(*this);
     }
-}
 
-template <typename RNGState>
-void CudarandRNG<RNGState>::initState() {
-    if (!d_states) return;
-    // Launch the initialization kernel using the defined grid and block sizes.
-    dim3 grid(BLOCKS);
-    dim3 block(THREADS_PER_BLOCK);
-    init_states<<<grid, block>>>(reinterpret_cast<RNGState*>(d_states), baseSeed);
-    cudaError_t err = cudaDeviceSynchronize();
-    if (err != cudaSuccess) {
-        std::cerr << "Error during state initialization synchronization: " 
-                  << cudaGetErrorString(err) << std::endl;
+    template <typename State>
+    template <typename T>
+    __host__ void
+    RNG<Mode::CUDA, State>::uniform_random_number(T* pointer, const Data64 size)
+    {
+        if (size == 0)
+            return;
+
+        CheckCudaPointer(pointer);
+
+        RNGTraits<Mode::CUDA, State>::generate_uniform_random_number(
+            *this, pointer, size);
     }
-}
 
-template <typename RNGState>
-void CudarandRNG<RNGState>::gen_random_u32(int N, Data32* res) {
-    if (!d_states) return;
-    dim3 grid(BLOCKS);
-    dim3 block(THREADS_PER_BLOCK);
-    generate_uniform_32<<<grid, block>>>(reinterpret_cast<RNGState*>(d_states), res, N);
-    cudaError_t err = cudaDeviceSynchronize();
-    if (err != cudaSuccess)
-        std::cerr << "Error in gen_random_u32 kernel: " 
-                  << cudaGetErrorString(err) << std::endl;
-}
+    template <typename State>
+    template <typename T>
+    __host__ void RNG<Mode::CUDA, State>::modular_uniform_random_number(
+        T* pointer, Modulus<T> modulus, const Data64 size)
+    {
+        if (size == 0)
+            return;
 
-template <typename RNGState>
-void CudarandRNG<RNGState>::gen_random_u64(int N, Data64* res) {
-    if (!d_states) return;
-    dim3 grid(BLOCKS);
-    dim3 block(THREADS_PER_BLOCK);
-    generate_uniform_64<<<grid, block>>>(reinterpret_cast<RNGState*>(d_states), res, N);
-    cudaError_t err = cudaDeviceSynchronize();
-    if (err != cudaSuccess)
-        std::cerr << "Error in gen_random_u64 kernel: " 
-                  << cudaGetErrorString(err) << std::endl;
-}
+        CheckCudaPointer(pointer);
 
-template <typename RNGState>
-void CudarandRNG<RNGState>::gen_random_f32(int N, f32* res) {
-    if (!d_states) return;
-    // Launch the kernel generating normal 32-bit floats.
-    dim3 grid(BLOCKS);
-    dim3 block(THREADS_PER_BLOCK);
-    generate_normal_32<<<grid, block>>>(reinterpret_cast<RNGState*>(d_states), res, N);
-    cudaError_t err = cudaDeviceSynchronize();
-    if (err != cudaSuccess)
-        std::cerr << "Error in gen_random_f32 kernel: " 
-                  << cudaGetErrorString(err) << std::endl;
-}
-
-template <typename RNGState>
-void CudarandRNG<RNGState>::gen_random_f64(int N, f64* res) {
-    if (!d_states) return;
-    // Launch the kernel generating normal 64-bit doubles.
-    dim3 grid(BLOCKS);
-    dim3 block(THREADS_PER_BLOCK);
-    generate_normal_64<<<grid, block>>>(reinterpret_cast<RNGState*>(d_states), res, N);
-    cudaError_t err = cudaDeviceSynchronize();
-    if (err != cudaSuccess)
-        std::cerr << "Error in gen_random_f64 kernel: " 
-                  << cudaGetErrorString(err) << std::endl;
-}
-
-template <typename RNGState>
-void CudarandRNG<RNGState>::gen_random_u64_mod_p(int N, Modulus64* p, Data64* res) {
-    if (!d_states) return;
-    // Generate 64-bit uniform numbers.
-    dim3 grid(BLOCKS);
-    dim3 block(THREADS_PER_BLOCK);
-    generate_uniform_64<<<grid, block>>>(reinterpret_cast<RNGState*>(d_states), res, N);
-    cudaError_t err = cudaDeviceSynchronize();
-    if (err != cudaSuccess) {
-        std::cerr << "Error in gen_random_u64_mod_p generation kernel: " 
-                  << cudaGetErrorString(err) << std::endl;
-        return;
+        RNGTraits<Mode::CUDA, State>::generate_modular_uniform_random_number(
+            *this, pointer, modulus, size);
     }
-    // Copy modulus value to device.
-    Modulus64* d_p;
-    cudaMalloc(&d_p, sizeof(Modulus64));
-    cudaMemcpy(d_p, p, sizeof(Modulus64), cudaMemcpyHostToDevice);
-    const int CTA_size = 256;
-    int grid_size = (N + CTA_size - 1) / CTA_size;
-    mod_reduce_u64<<<grid_size, CTA_size>>>(res, d_p, N);
-    cudaDeviceSynchronize();
-    cudaFree(d_p);
-}
 
-template <typename RNGState>
-void CudarandRNG<RNGState>::gen_random_u64_mod_p(int N, Modulus64* p, Data32 p_num, Data64* res) {
-    if (!d_states) return;
-    dim3 grid(BLOCKS);
-    dim3 block(THREADS_PER_BLOCK);
-    generate_uniform_64<<<grid, block>>>(reinterpret_cast<RNGState*>(d_states), res, N);
-    cudaError_t err = cudaDeviceSynchronize();
-    if (err != cudaSuccess) {
-        std::cerr << "Error in gen_random_u64_mod_p generation kernel: " 
-                  << cudaGetErrorString(err) << std::endl;
-        return;
+    template <typename State>
+    template <typename T>
+    __host__ void RNG<Mode::CUDA, State>::modular_uniform_random_number(
+        T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
+        int repeat_count)
+    {
+        if ((log_size == 0) || (repeat_count == 0))
+            return;
+
+        CheckCudaPointer(pointer);
+        CheckCudaPointer(modulus);
+
+        RNGTraits<Mode::CUDA, State>::generate_modular_uniform_random_number(
+            *this, pointer, modulus, log_size, mod_count, repeat_count);
     }
-    Modulus64* d_p;
-    cudaMalloc(&d_p, p_num * sizeof(Modulus64));
-    cudaMemcpy(d_p, p, p_num * sizeof(Modulus64), cudaMemcpyHostToDevice);
-    mod_reduce_u64<<<dim3(BLOCKS, p_num, 1), THREADS_PER_BLOCK>>>(res, d_p, p_num, N);
-    cudaDeviceSynchronize();
-    cudaFree(d_p);
-}
 
-template <typename RNGState>
-void CudarandRNG<RNGState>::gen_random_u32_mod_p(int N, Modulus32* p, Data32* res) {
-    if (!d_states) return;
-    dim3 grid(BLOCKS);
-    dim3 block(THREADS_PER_BLOCK);
-    generate_uniform_32<<<grid, block>>>(reinterpret_cast<RNGState*>(d_states), res, N);
-    cudaError_t err = cudaDeviceSynchronize();
-    if (err != cudaSuccess) {
-        std::cerr << "Error in gen_random_u32_mod_p generation kernel: " 
-                  << cudaGetErrorString(err) << std::endl;
-        return;
+    template <typename State>
+    template <typename T>
+    __host__ void RNG<Mode::CUDA, State>::modular_uniform_random_number(
+        T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
+        int* mod_index, int repeat_count)
+    {
+        if ((log_size == 0) || (repeat_count == 0))
+            return;
+
+        CheckCudaPointer(pointer);
+        CheckCudaPointer(modulus);
+        CheckCudaPointer(mod_index);
+
+        RNGTraits<Mode::CUDA, State>::generate_modular_uniform_random_number(
+            *this, pointer, modulus, log_size, mod_count, mod_index,
+            repeat_count);
     }
-    Modulus32* d_p;
-    cudaMalloc(&d_p, sizeof(Modulus32));
-    cudaMemcpy(d_p, p, sizeof(Modulus32), cudaMemcpyHostToDevice);
-    const int CTA_size = 256;
-    int grid_size = (N + CTA_size - 1) / CTA_size;
-    mod_reduce_u32<<<grid_size, CTA_size>>>(res, d_p, N);
-    cudaDeviceSynchronize();
-    cudaFree(d_p);
-}
 
-template <typename RNGState>
-void CudarandRNG<RNGState>::gen_random_u32_mod_p(int N, Modulus32* p, Data32 p_num, Data32* res) {
-    if (!d_states) return;
-    dim3 grid(BLOCKS);
-    dim3 block(THREADS_PER_BLOCK);
-    generate_uniform_32<<<grid, block>>>(reinterpret_cast<RNGState*>(d_states), res, N);
-    cudaError_t err = cudaDeviceSynchronize();
-    if (err != cudaSuccess) {
-        std::cerr << "Error in gen_random_u32_mod_p generation kernel: " 
-                  << cudaGetErrorString(err) << std::endl;
-        return;
+    // --
+
+    template <typename State>
+    template <typename T>
+    __host__ void
+    RNG<Mode::CUDA, State>::normal_random_number(T std_dev, T* pointer,
+                                                 const Data64 size)
+    {
+        if (size == 0)
+            return;
+
+        CheckCudaPointer(pointer);
+
+        RNGTraits<Mode::CUDA, State>::generate_normal_random_number(
+            *this, std_dev, pointer, size);
     }
-    Modulus32* d_p;
-    cudaMalloc(&d_p, p_num * sizeof(Modulus32));
-    cudaMemcpy(d_p, p, p_num * sizeof(Modulus32), cudaMemcpyHostToDevice);
-    mod_reduce_u32<<<dim3(BLOCKS, p_num, 1), THREADS_PER_BLOCK>>>(res, d_p, p_num, N);
-    cudaDeviceSynchronize();
-    cudaFree(d_p);
-}
 
+    template <typename State>
+    template <typename T, typename U>
+    __host__ void RNG<Mode::CUDA, State>::modular_normal_random_number(
+        U std_dev, T* pointer, Modulus<T> modulus, const Data64 size)
+    {
+        if (size == 0)
+            return;
 
-template class CudarandRNG<curandStateXORWOW>;
-template class CudarandRNG<curandStateMRG32k3a>;
-template class CudarandRNG<curandStatePhilox4_32_10>;
+        CheckCudaPointer(pointer);
+
+        RNGTraits<Mode::CUDA, State>::generate_modular_normal_random_number(
+            *this, std_dev, pointer, modulus, size);
+    }
+
+    template <typename State>
+    template <typename T, typename U>
+    __host__ void RNG<Mode::CUDA, State>::modular_normal_random_number(
+        U std_dev, T* pointer, Modulus<T>* modulus, Data64 log_size,
+        int mod_count, int repeat_count)
+    {
+        if ((log_size == 0) || (repeat_count == 0))
+            return;
+
+        CheckCudaPointer(pointer);
+        CheckCudaPointer(modulus);
+
+        RNGTraits<Mode::CUDA, State>::generate_modular_normal_random_number(
+            *this, std_dev, pointer, modulus, log_size, mod_count,
+            repeat_count);
+    }
+
+    template <typename State>
+    template <typename T, typename U>
+    __host__ void RNG<Mode::CUDA, State>::modular_normal_random_number(
+        U std_dev, T* pointer, Modulus<T>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count)
+    {
+        if ((log_size == 0) || (repeat_count == 0))
+            return;
+
+        CheckCudaPointer(pointer);
+        CheckCudaPointer(modulus);
+        CheckCudaPointer(mod_index);
+
+        RNGTraits<Mode::CUDA, State>::generate_modular_normal_random_number(
+            *this, std_dev, pointer, modulus, log_size, mod_count, mod_index,
+            repeat_count);
+    }
+
+    // --
+
+    template <typename State>
+    template <typename T>
+    __host__ void
+    RNG<Mode::CUDA, State>::ternary_random_number(T* pointer, const Data64 size)
+    {
+        if (size == 0)
+            return;
+
+        CheckCudaPointer(pointer);
+
+        RNGTraits<Mode::CUDA, State>::generate_ternary_random_number(
+            *this, pointer, size);
+    }
+
+    template <typename State>
+    template <typename T>
+    __host__ void RNG<Mode::CUDA, State>::modular_ternary_random_number(
+        T* pointer, Modulus<T> modulus, const Data64 size)
+    {
+        if (size == 0)
+            return;
+
+        CheckCudaPointer(pointer);
+
+        RNGTraits<Mode::CUDA, State>::generate_modular_ternary_random_number(
+            *this, pointer, modulus, size);
+    }
+
+    template <typename State>
+    template <typename T>
+    __host__ void RNG<Mode::CUDA, State>::modular_ternary_random_number(
+        T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
+        int repeat_count)
+    {
+        if ((log_size == 0) || (repeat_count == 0))
+            return;
+
+        CheckCudaPointer(pointer);
+        CheckCudaPointer(modulus);
+
+        RNGTraits<Mode::CUDA, State>::generate_modular_ternary_random_number(
+            *this, pointer, modulus, log_size, mod_count, repeat_count);
+    }
+
+    template <typename State>
+    template <typename T>
+    __host__ void RNG<Mode::CUDA, State>::modular_ternary_random_number(
+        T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
+        int* mod_index, int repeat_count)
+    {
+        if ((log_size == 0) || (repeat_count == 0))
+            return;
+
+        CheckCudaPointer(pointer);
+        CheckCudaPointer(modulus);
+        CheckCudaPointer(mod_index);
+
+        RNGTraits<Mode::CUDA, State>::generate_modular_ternary_random_number(
+            *this, pointer, modulus, log_size, mod_count, mod_index,
+            repeat_count);
+    }
+
+    template class RNG<Mode::CUDA, curandStateXORWOW>;
+    template class RNG<Mode::CUDA, curandStateMRG32k3a>;
+    template class RNG<Mode::CUDA, curandStatePhilox4_32_10>;
+
+    // --
+
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::uniform_random_number<Data32>(
+        Data32* pointer, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::uniform_random_number<Data64>(
+        Data64* pointer, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::uniform_random_number<Data32>(
+        Data32* pointer, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::uniform_random_number<Data64>(
+        Data64* pointer, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::uniform_random_number<Data32>(
+        Data32* pointer, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::uniform_random_number<Data64>(
+        Data64* pointer, const Data64 size);
+
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_uniform_random_number<Data32>(
+        Data32* pointer, Modulus<Data32> modulus, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_uniform_random_number<Data64>(
+        Data64* pointer, Modulus<Data64> modulus, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_uniform_random_number<Data32>(
+        Data32* pointer, Modulus<Data32> modulus, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_uniform_random_number<Data64>(
+        Data64* pointer, Modulus<Data64> modulus, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_uniform_random_number<
+        Data32>(Data32* pointer, Modulus<Data32> modulus, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_uniform_random_number<
+        Data64>(Data64* pointer, Modulus<Data64> modulus, const Data64 size);
+
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_uniform_random_number<Data32>(
+        Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_uniform_random_number<Data64>(
+        Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_uniform_random_number<Data32>(
+        Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_uniform_random_number<Data64>(
+        Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_uniform_random_number<
+        Data32>(Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+                int mod_count, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_uniform_random_number<
+        Data64>(Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+                int mod_count, int repeat_count);
+
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_uniform_random_number<Data32>(
+        Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_uniform_random_number<Data64>(
+        Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_uniform_random_number<Data32>(
+        Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_uniform_random_number<Data64>(
+        Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_uniform_random_number<
+        Data32>(Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+                int mod_count, int* mod_index, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_uniform_random_number<
+        Data64>(Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+                int mod_count, int* mod_index, int repeat_count);
+
+    // --
+
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::normal_random_number<f32>(
+        f32 std_dev, f32* pointer, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::normal_random_number<f64>(
+        f64 std_dev, f64* pointer, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::normal_random_number<f32>(
+        f32 std_dev, f32* pointer, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::normal_random_number<f64>(
+        f64 std_dev, f64* pointer, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::normal_random_number<f32>(
+        f32 std_dev, f32* pointer, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::normal_random_number<f64>(
+        f64 std_dev, f64* pointer, const Data64 size);
+
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_normal_random_number<
+        Data32, f32>(f32 std_dev, Data32* pointer, Modulus<Data32> modulus,
+                     const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_normal_random_number<
+        Data32, f64>(f64 std_dev, Data32* pointer, Modulus<Data32> modulus,
+                     const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_normal_random_number<
+        Data64, f32>(f32 std_dev, Data64* pointer, Modulus<Data64> modulus,
+                     const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_normal_random_number<
+        Data64, f64>(f64 std_dev, Data64* pointer, Modulus<Data64> modulus,
+                     const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_normal_random_number<
+        Data32, f32>(f32 std_dev, Data32* pointer, Modulus<Data32> modulus,
+                     const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_normal_random_number<
+        Data32, f64>(f64 std_dev, Data32* pointer, Modulus<Data32> modulus,
+                     const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_normal_random_number<
+        Data64, f32>(f32 std_dev, Data64* pointer, Modulus<Data64> modulus,
+                     const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_normal_random_number<
+        Data64, f64>(f64 std_dev, Data64* pointer, Modulus<Data64> modulus,
+                     const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_normal_random_number<
+        Data32, f32>(f32 std_dev, Data32* pointer, Modulus<Data32> modulus,
+                     const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_normal_random_number<
+        Data32, f64>(f64 std_dev, Data32* pointer, Modulus<Data32> modulus,
+                     const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_normal_random_number<
+        Data64, f32>(f32 std_dev, Data64* pointer, Modulus<Data64> modulus,
+                     const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_normal_random_number<
+        Data64, f64>(f64 std_dev, Data64* pointer, Modulus<Data64> modulus,
+                     const Data64 size);
+
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_normal_random_number<
+        Data32, f32>(f32 std_dev, Data32* pointer, Modulus<Data32>* modulus,
+                     Data64 log_size, int mod_count, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_normal_random_number<
+        Data32, f64>(f64 std_dev, Data32* pointer, Modulus<Data32>* modulus,
+                     Data64 log_size, int mod_count, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_normal_random_number<
+        Data64, f32>(f32 std_dev, Data64* pointer, Modulus<Data64>* modulus,
+                     Data64 log_size, int mod_count, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_normal_random_number<
+        Data64, f64>(f64 std_dev, Data64* pointer, Modulus<Data64>* modulus,
+                     Data64 log_size, int mod_count, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_normal_random_number<
+        Data32, f32>(f32 std_dev, Data32* pointer, Modulus<Data32>* modulus,
+                     Data64 log_size, int mod_count, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_normal_random_number<
+        Data32, f64>(f64 std_dev, Data32* pointer, Modulus<Data32>* modulus,
+                     Data64 log_size, int mod_count, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_normal_random_number<
+        Data64, f32>(f32 std_dev, Data64* pointer, Modulus<Data64>* modulus,
+                     Data64 log_size, int mod_count, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_normal_random_number<
+        Data64, f64>(f64 std_dev, Data64* pointer, Modulus<Data64>* modulus,
+                     Data64 log_size, int mod_count, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_normal_random_number<
+        Data32, f32>(f32 std_dev, Data32* pointer, Modulus<Data32>* modulus,
+                     Data64 log_size, int mod_count, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_normal_random_number<
+        Data32, f64>(f64 std_dev, Data32* pointer, Modulus<Data32>* modulus,
+                     Data64 log_size, int mod_count, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_normal_random_number<
+        Data64, f32>(f32 std_dev, Data64* pointer, Modulus<Data64>* modulus,
+                     Data64 log_size, int mod_count, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_normal_random_number<
+        Data64, f64>(f64 std_dev, Data64* pointer, Modulus<Data64>* modulus,
+                     Data64 log_size, int mod_count, int repeat_count);
+
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_normal_random_number<
+        Data32, f32>(f32 std_dev, Data32* pointer, Modulus<Data32>* modulus,
+                     Data64 log_size, int mod_count, int* mod_index,
+                     int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_normal_random_number<
+        Data32, f64>(f64 std_dev, Data32* pointer, Modulus<Data32>* modulus,
+                     Data64 log_size, int mod_count, int* mod_index,
+                     int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_normal_random_number<
+        Data64, f32>(f32 std_dev, Data64* pointer, Modulus<Data64>* modulus,
+                     Data64 log_size, int mod_count, int* mod_index,
+                     int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_normal_random_number<
+        Data64, f64>(f64 std_dev, Data64* pointer, Modulus<Data64>* modulus,
+                     Data64 log_size, int mod_count, int* mod_index,
+                     int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_normal_random_number<
+        Data32, f32>(f32 std_dev, Data32* pointer, Modulus<Data32>* modulus,
+                     Data64 log_size, int mod_count, int* mod_index,
+                     int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_normal_random_number<
+        Data32, f64>(f64 std_dev, Data32* pointer, Modulus<Data32>* modulus,
+                     Data64 log_size, int mod_count, int* mod_index,
+                     int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_normal_random_number<
+        Data64, f32>(f32 std_dev, Data64* pointer, Modulus<Data64>* modulus,
+                     Data64 log_size, int mod_count, int* mod_index,
+                     int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_normal_random_number<
+        Data64, f64>(f64 std_dev, Data64* pointer, Modulus<Data64>* modulus,
+                     Data64 log_size, int mod_count, int* mod_index,
+                     int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_normal_random_number<
+        Data32, f32>(f32 std_dev, Data32* pointer, Modulus<Data32>* modulus,
+                     Data64 log_size, int mod_count, int* mod_index,
+                     int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_normal_random_number<
+        Data32, f64>(f64 std_dev, Data32* pointer, Modulus<Data32>* modulus,
+                     Data64 log_size, int mod_count, int* mod_index,
+                     int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_normal_random_number<
+        Data64, f32>(f32 std_dev, Data64* pointer, Modulus<Data64>* modulus,
+                     Data64 log_size, int mod_count, int* mod_index,
+                     int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_normal_random_number<
+        Data64, f64>(f64 std_dev, Data64* pointer, Modulus<Data64>* modulus,
+                     Data64 log_size, int mod_count, int* mod_index,
+                     int repeat_count);
+
+    // --
+
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::ternary_random_number<Data32>(
+        Data32* pointer, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::ternary_random_number<Data64>(
+        Data64* pointer, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::ternary_random_number<Data32>(
+        Data32* pointer, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::ternary_random_number<Data64>(
+        Data64* pointer, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::ternary_random_number<Data32>(
+        Data32* pointer, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::ternary_random_number<Data64>(
+        Data64* pointer, const Data64 size);
+
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_ternary_random_number<Data32>(
+        Data32* pointer, Modulus<Data32> modulus, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_ternary_random_number<Data64>(
+        Data64* pointer, Modulus<Data64> modulus, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_ternary_random_number<Data32>(
+        Data32* pointer, Modulus<Data32> modulus, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_ternary_random_number<Data64>(
+        Data64* pointer, Modulus<Data64> modulus, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_ternary_random_number<
+        Data32>(Data32* pointer, Modulus<Data32> modulus, const Data64 size);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_ternary_random_number<
+        Data64>(Data64* pointer, Modulus<Data64> modulus, const Data64 size);
+
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_ternary_random_number<Data32>(
+        Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_ternary_random_number<Data64>(
+        Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_ternary_random_number<Data32>(
+        Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_ternary_random_number<Data64>(
+        Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_ternary_random_number<
+        Data32>(Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+                int mod_count, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_ternary_random_number<
+        Data64>(Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+                int mod_count, int repeat_count);
+
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_ternary_random_number<Data32>(
+        Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateXORWOW>::modular_ternary_random_number<Data64>(
+        Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_ternary_random_number<Data32>(
+        Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStateMRG32k3a>::modular_ternary_random_number<Data64>(
+        Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_ternary_random_number<
+        Data32>(Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+                int mod_count, int* mod_index, int repeat_count);
+    template __host__ void
+    RNG<Mode::CUDA, curandStatePhilox4_32_10>::modular_ternary_random_number<
+        Data64>(Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+                int mod_count, int* mod_index, int repeat_count);
 
 } // end namespace rngongpu

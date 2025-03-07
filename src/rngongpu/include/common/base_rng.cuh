@@ -9,12 +9,89 @@
 #include <exception>
 #include <iostream>
 #include <string>
+#include <stdexcept>
+#include <sstream>
 #include <cuda_runtime.h>
 #include "modular_arith.cuh"
 #include "aes.cuh"
 
 namespace rngongpu
 {
+    enum class Mode
+    {
+        CUDA,
+        AES
+    };
+
+    template <Mode mode, typename State = void> struct ModeFeature;
+
+    template <Mode mode, typename State = void> struct RNGTraits;
+
+    template <Mode mode, typename State = void> class RNG;
+
+    void CheckCudaPointer(const void* ptr);
+
+    // --
+
+    template <typename T>
+    __global__ void mod_reduce_kernel(T* pointer, Modulus<T> modulus,
+                                      Data32 size, int max_state_num);
+
+    template <typename T>
+    __global__ void mod_reduce_kernel(T* pointer, Modulus<T>* modulus,
+                                      Data32 log_size, int mod_count,
+                                      int repeat_count, int max_state_num);
+
+    template <typename T>
+    __global__ void mod_reduce_kernel(T* pointer, Modulus<T>* modulus,
+                                      Data32 log_size, int mod_count,
+                                      int* mod_index, int repeat_count,
+                                      int max_state_num);
+
+    // --
+
+    template <typename T, typename U>
+    __global__ void box_muller_kernel(U std_dev, T* input, U* output,
+                                      Data32 size, int max_state_num);
+
+    template <typename T, typename U>
+    __global__ void box_muller_kernel(U std_dev, T* pointer, Modulus<T> modulus,
+                                      Data32 size, int max_state_num);
+
+    template <typename T, typename U>
+    __global__ void box_muller_kernel(U std_dev, T* input, T* output,
+                                      Modulus<T>* modulus, Data32 log_size,
+                                      int mod_count, int repeat_count,
+                                      int max_state_num);
+
+    template <typename T, typename U>
+    __global__ void box_muller_kernel(U std_dev, T* input, T* output,
+                                      Modulus<T>* modulus, Data32 log_size,
+                                      int mod_count, int* mod_index,
+                                      int repeat_count, int max_state_num);
+
+    // --
+
+    template <typename T>
+    __global__ void ternary_number_kernel(T* pointer, Data32 size,
+                                          int max_state_num);
+
+    template <typename T>
+    __global__ void ternary_number_kernel(T* pointer, Modulus<T> modulus,
+                                          Data32 size, int max_state_num);
+
+    template <typename T>
+    __global__ void ternary_number_kernel(T* input, T* output,
+                                          Modulus<T>* modulus, Data32 log_size,
+                                          int mod_count, int repeat_count,
+                                          int max_state_num);
+
+    template <typename T>
+    __global__ void ternary_number_kernel(T* input, T* output,
+                                          Modulus<T>* modulus, Data32 log_size,
+                                          int mod_count, int* mod_index,
+                                          int repeat_count, int max_state_num);
+
     class CudaException : public std::exception
     {
       public:
