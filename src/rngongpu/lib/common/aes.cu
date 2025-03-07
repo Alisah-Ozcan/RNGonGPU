@@ -353,7 +353,7 @@ namespace rngongpu
 
     __global__ void
     counter192WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox(
-        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64* range, 
+        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64* range,
         Data64* rng_res, Data32 N)
     {
         int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;

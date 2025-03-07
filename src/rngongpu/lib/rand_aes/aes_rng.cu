@@ -6,518 +6,806 @@
 #include "base_rng.cuh"
 #include <random>
 
-#define BLOCKS 4
-#define THREADS 256
-
 namespace rngongpu
 {
-    const EVP_CIPHER* AES_RNG::getEVPCipherECB() const
+    RNG<Mode::AES>::RNG(
+        const std::vector<unsigned char>& key,
+        const std::vector<unsigned char>& nonce,
+        const std::vector<unsigned char>& personalization_string,
+        SecurityLevel security_level, bool prediction_resistance_enabled)
     {
-        switch (securityLevel)
+        RNGTraits<Mode::AES>::initialize(*this, key, nonce,
+                                         personalization_string, security_level,
+                                         prediction_resistance_enabled);
+    }
+
+    RNG<Mode::AES>::~RNG()
+    {
+        RNGTraits<Mode::AES>::clear(*this);
+    }
+
+    void RNG<Mode::AES>::print_params()
+    {
+        std::cout << "Key: " << std::endl;
+        for (unsigned char byte : this->key_)
         {
-            case SecurityLevel::AES128:
-                return EVP_aes_128_ecb();
-            case SecurityLevel::AES192:
-                return EVP_aes_192_ecb();
-            case SecurityLevel::AES256:
-                return EVP_aes_256_ecb();
-            default:
-                throw std::runtime_error("Unsupported security level in ECB");
+            std::cout << std::hex << std::setw(2) << std::setfill('0')
+                      << static_cast<int>(byte);
         }
-    }
-    void AES_RNG::init()
-    {
-        switch (securityLevel)
+        std::cout << std::dec << std::endl << std::endl;
+
+        std::cout << "Nonce: " << std::endl;
+        for (unsigned char byte : this->nonce_)
         {
-            case SecurityLevel::AES128:
-                keyLen = 16;
-                break;
-            case SecurityLevel::AES192:
-                keyLen = 24;
-                break;
-            case SecurityLevel::AES256:
-                keyLen = 32;
-                break;
-            default:
-                throw std::runtime_error("Unsupported security level");
+            std::cout << std::hex << std::setw(2) << std::setfill('0')
+                      << static_cast<int>(byte);
         }
-        seedLen = keyLen + 16; // 16 bytes for the block size (V)
-
-        std::random_device rd;
-        std::mt19937_64 gen(rd());
-        std::uniform_int_distribution<Data32> dist(
-            0, std::numeric_limits<Data8>::max());
-
-        for (int i = 0; i < seedLen; i++)
-            this->seed.push_back(dist(gen));
-
-        std::vector<unsigned char> seedMaterial = DF(seed, seedLen);
-
-        this -> key = std::vector<unsigned char>(keyLen, 0);
-        this -> nonce = std::vector<unsigned char>(16, 0);
-
-        switch (securityLevel)
-        {
-            case SecurityLevel::AES128:
-                RNGONGPU_CUDA_CHECK(cudaMallocManaged(
-                    &(this->roundKeys), AES_128_KEY_SIZE_INT * sizeof(Data32)));
-                break;
-            case SecurityLevel::AES192:
-                RNGONGPU_CUDA_CHECK(cudaMallocManaged(
-                    &(this->roundKeys), AES_192_KEY_SIZE_INT * sizeof(Data32)));
-                break;
-            case SecurityLevel::AES256:
-                RNGONGPU_CUDA_CHECK(cudaMallocManaged(
-                    &(this->roundKeys), AES_256_KEY_SIZE_INT * sizeof(Data32)));
-                break;
-            default:
-                throw std::runtime_error("Unsupported security level");
-        }
-
-        this -> update(seedMaterial);
-
-        // Allocate RCON values
-        RNGONGPU_CUDA_CHECK(
-            cudaMallocManaged(&(this->rcon), RCON_SIZE * sizeof(Data32)));
-        for (int i = 0; i < RCON_SIZE; i++)
-        {
-            this->rcon[i] = RCON32[i];
-        }
-
-        // Allocate Tables
-        RNGONGPU_CUDA_CHECK(
-            cudaMallocManaged(&(this->t0), TABLE_SIZE * sizeof(Data32)));
-        RNGONGPU_CUDA_CHECK(
-            cudaMallocManaged(&(this->t1), TABLE_SIZE * sizeof(Data32)));
-        RNGONGPU_CUDA_CHECK(
-            cudaMallocManaged(&(this->t2), TABLE_SIZE * sizeof(Data32)));
-        RNGONGPU_CUDA_CHECK(
-            cudaMallocManaged(&(this->t3), TABLE_SIZE * sizeof(Data32)));
-        RNGONGPU_CUDA_CHECK(
-            cudaMallocManaged(&(this->t4), TABLE_SIZE * sizeof(Data32)));
-        RNGONGPU_CUDA_CHECK(
-            cudaMallocManaged(&(this->t4_0), TABLE_SIZE * sizeof(Data32)));
-        RNGONGPU_CUDA_CHECK(
-            cudaMallocManaged(&(this->t4_1), TABLE_SIZE * sizeof(Data32)));
-        RNGONGPU_CUDA_CHECK(
-            cudaMallocManaged(&(this->t4_2), TABLE_SIZE * sizeof(Data32)));
-        RNGONGPU_CUDA_CHECK(
-            cudaMallocManaged(&(this->t4_3), TABLE_SIZE * sizeof(Data32)));
-        RNGONGPU_CUDA_CHECK(cudaMallocManaged(&(this->SAES_d),
-                                              256 * sizeof(Data8))); // Cihangir
-        for (int i = 0; i < TABLE_SIZE; i++)
-        {
-            this->t0[i] = T0[i];
-            this->t1[i] = T1[i];
-            this->t2[i] = T2[i];
-            this->t3[i] = T3[i];
-            this->t4[i] = T4[i];
-            this->t4_0[i] = T4_0[i];
-            this->t4_1[i] = T4_1[i];
-            this->t4_2[i] = T4_2[i];
-            this->t4_3[i] = T4_3[i];
-        }
-        for (int i = 0; i < 256; i++)
-            this->SAES_d[i] = SAES[i]; // Cihangir
-
-        cudaMalloc(&(this->d_nonce), 4 * sizeof(Data32));
-        cudaMemcpy(this->d_nonce, (this->nonce).data(), 4 * sizeof(Data32),
-                   cudaMemcpyHostToDevice);
+        std::cout << std::dec << std::endl << std::endl;
     }
-    void AES_RNG::increment_nonce(Data32 N)
+
+    void
+    RNG<Mode::AES>::reseed(const std::vector<unsigned char>& additional_input)
     {
-        for (int i = nonce.size() - 1; i >= 0; i--)
-        {
-            if (nonce[i] < 255)
-            {
-                nonce[i]++;
-                break;
-            }
-            nonce[i] = 0;
-        }
+        std::vector<unsigned char> generated_entropy_input(this->key_len_);
+        if (1 != RAND_bytes(generated_entropy_input.data(),
+                            generated_entropy_input.size()))
+            throw std::runtime_error("RAND_bytes failed during reseed");
 
-        cudaMemcpy(this->d_nonce, (this->nonce).data(), 4 * sizeof(Data32),
-                   cudaMemcpyHostToDevice);
+        RNGTraits<Mode::AES>::reseed(*this, generated_entropy_input,
+                                     additional_input);
     }
 
-    // generate random bits on the device. Write N bytes to res
-    // using BLOCKS blocks with THREADS threads each.
-    void AES_RNG::gen_random_bytes(int N, int nBLOCKS, int nTHREADS,
-                                   Data64* res,
-                                   std::vector<unsigned char> additionalInput)
+    void
+    RNG<Mode::AES>::reseed(const std::vector<unsigned char>& entropy_input,
+                           const std::vector<unsigned char>& additional_input)
     {
-        if (this->isPredictionResistanceEnabled ||
-            this->reseedCounter >= RESEED_INTERVAL)
-        {
-            reseed(std::vector<unsigned char>());
-        }
-
-        if (additionalInput.size() != 0)
-        {
-            additionalInput = DF(additionalInput, seedLen);
-            update(additionalInput);
-        } else 
-        {
-            additionalInput = std::vector<unsigned char>(seedLen, 0);
-        }
-
-        int num_u64 = (N + 7) / 8;
-        // Calculate the range for each thread
-        Data64* range;
-        RNGONGPU_CUDA_CHECK(cudaMallocManaged(&range, sizeof(Data64)));
-        int threadCount = nBLOCKS * nTHREADS;
-        double threadCount_d = (double) num_u64;
-        double threadRange = threadCount_d / (threadCount * 2);
-        *range = ceil(threadRange);
-
-        printf("N: %u, range: %llu, BLOCKS: %u, THREADS: %u\n", num_u64, *range,
-               nBLOCKS, nTHREADS);
-        printf("Calling kernel to generate %u numbers, range: %llu\n", num_u64,
-               *range);
-        switch (securityLevel)
-        {
-            case SecurityLevel::AES128:
-                counterWithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBoxCihangir<<<
-                    nBLOCKS, nTHREADS>>>(this->d_nonce, this->roundKeys, this->t0,
-                                        this->t4, range, this->SAES_d, res, num_u64);
-                break;
-            case SecurityLevel::AES192:
-                counter192WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox<<<
-                    nBLOCKS, nTHREADS>>>(this->d_nonce, this->roundKeys, this->t0,
-                                        this->t4, range, res, num_u64);
-                break;
-            case SecurityLevel::AES256:
-                counter256WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox<<<
-                    nBLOCKS, nTHREADS>>>(this->d_nonce, this->roundKeys, this->t0,
-                                        this->t4, range, res, num_u64);
-                break;
-            default:
-                throw std::runtime_error("Unsupported security level");
-        }
-        Data64* h_res_u64 = new Data64[num_u64];
-        cudaMemcpy(h_res_u64, res, num_u64 * sizeof(Data64),
-                   cudaMemcpyDeviceToHost);
-        cudaDeviceSynchronize();
-        // printLastCUDAError();
-
-        // Free alocated arrays
-        cudaFree(range);
-
-        this->increment_nonce(num_u64 + 1 / 2);
-        this->update(additionalInput);
-        this->reseedCounter += (N / MAX_BYTES_PER_REQUEST + 1);
+        RNGTraits<Mode::AES>::reseed(*this, entropy_input, additional_input);
     }
-    AES_RNG::AES_RNG(bool _isPredictionResistanceEnabled, SecurityLevel _securityLevel)
-        : reseedCounter(1UL),
-          isPredictionResistanceEnabled(_isPredictionResistanceEnabled),
-          securityLevel(_securityLevel)
+
+    template <typename T>
+    __host__ void RNG<Mode::AES>::uniform_random_number(
+        T* pointer, const Data64 size,
+        std::vector<unsigned char> additional_input)
     {
-        this->init();
+        if (size == 0)
+            return;
+
+        CheckCudaPointer(pointer);
+
+        std::vector<unsigned char> generated_entropy(this->key_len_);
+        if (1 != RAND_bytes(generated_entropy.data(), generated_entropy.size()))
+            throw std::runtime_error("RAND_bytes failed during reseed");
+
+        RNGTraits<Mode::AES>::generate_uniform_random_number(
+            *this, pointer, size, generated_entropy, additional_input);
     }
 
-    AES_RNG::~AES_RNG()
+    template <typename T>
+    __host__ void RNG<Mode::AES>::uniform_random_number(
+        T* pointer, const Data64 size,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input)
     {
-        cudaFree(this->t0);
-        cudaFree(this->t1);
-        cudaFree(this->t2);
-        cudaFree(this->t3);
-        cudaFree(this->t4);
-        cudaFree(this->t4_0);
-        cudaFree(this->t4_1);
-        cudaFree(this->t4_2);
-        cudaFree(this->t4_3);
-        cudaFree(this->rcon);
-        cudaFree(this->SAES_d);
-        cudaFree(this->d_nonce);
-        cudaFree(this->roundKeys);
+        if (size == 0)
+            return;
+
+        CheckCudaPointer(pointer);
+
+        RNGTraits<Mode::AES>::generate_uniform_random_number(
+            *this, pointer, size, entropy_input, additional_input);
     }
-    void AES_RNG::gen_random_f32(int N, f32* res)
+
+    template <typename T>
+    __host__ void RNG<Mode::AES>::modular_uniform_random_number(
+        T* pointer, Modulus<T> modulus, const Data64 size,
+        std::vector<unsigned char> additional_input)
     {
-        Data64* res_u64;
-        int num_u32 = N;
-        cudaMalloc(&res_u64, num_u32 * sizeof(Data32));
-        this->gen_random_bytes(num_u32 * sizeof(Data32), BLOCKS, THREADS,
-                               res_u64, std::vector<unsigned char>());
+        if (size == 0)
+            return;
 
-        const int CTA_size = 256;
-        const int grid_size = (N + CTA_size - 1) / (CTA_size * 2);
+        CheckCudaPointer(pointer);
 
-        Data32* d_res_as_u32 = reinterpret_cast<Data32*>(res_u64);
-        box_muller_u32<<<grid_size, CTA_size>>>(d_res_as_u32, res, N);
-        cudaDeviceSynchronize();
+        std::vector<unsigned char> generated_entropy(this->key_len_);
+        if (1 != RAND_bytes(generated_entropy.data(), generated_entropy.size()))
+            throw std::runtime_error("RAND_bytes failed during reseed");
+
+        RNGTraits<Mode::AES>::generate_modular_uniform_random_number(
+            *this, pointer, modulus, size, generated_entropy, additional_input);
     }
-    void AES_RNG::gen_random_f64(int N, f64* res)
+
+    template <typename T>
+    __host__ void RNG<Mode::AES>::modular_uniform_random_number(
+        T* pointer, Modulus<T> modulus, const Data64 size,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input)
     {
-        Data64* res_u64;
-        int num_u64 = N;
-        cudaMalloc(&res_u64, num_u64 * sizeof(Data64));
-        this->gen_random_bytes(num_u64 * sizeof(Data64), BLOCKS, THREADS,
-                               res_u64, std::vector<unsigned char>());
+        if (size == 0)
+            return;
 
-        const int CTA_size = 256;
-        const int grid_size = (N + CTA_size - 1) / (CTA_size * 2);
+        CheckCudaPointer(pointer);
 
-        box_muller_u64<<<grid_size, CTA_size>>>(res_u64, res, N);
-        cudaDeviceSynchronize();
+        RNGTraits<Mode::AES>::generate_modular_uniform_random_number(
+            *this, pointer, modulus, size, entropy_input, additional_input);
     }
 
-    void AES_RNG::gen_random_u64(int N, Data64* res)
+    template <typename T>
+    __host__ void RNG<Mode::AES>::modular_uniform_random_number(
+        T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
+        int repeat_count, std::vector<unsigned char> additional_input)
     {
-        this->gen_random_bytes(N * sizeof(Data64), BLOCKS, THREADS, res,
-                               std::vector<unsigned char>());
+        if ((log_size == 0) || (repeat_count == 0))
+            return;
+
+        CheckCudaPointer(pointer);
+        CheckCudaPointer(modulus);
+
+        std::vector<unsigned char> generated_entropy(this->key_len_);
+        if (1 != RAND_bytes(generated_entropy.data(), generated_entropy.size()))
+            throw std::runtime_error("RAND_bytes failed during reseed");
+
+        RNGTraits<Mode::AES>::generate_modular_uniform_random_number(
+            *this, pointer, modulus, log_size, mod_count, repeat_count,
+            generated_entropy, additional_input);
     }
 
-    void AES_RNG::gen_random_u64_mod_p(int N, Modulus64* p, Data64* res)
+    template <typename T>
+    __host__ void RNG<Mode::AES>::modular_uniform_random_number(
+        T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
+        int repeat_count, std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input)
     {
-        this->gen_random_bytes(N * sizeof(Data64), BLOCKS, THREADS, res,
-                               std::vector<unsigned char>());
+        if ((log_size == 0) || (repeat_count == 0))
+            return;
 
-        Modulus64* d_p;
-        cudaMalloc(&d_p, sizeof(Modulus64));
-        cudaMemcpy(d_p, p, sizeof(Modulus64), cudaMemcpyHostToDevice);
+        CheckCudaPointer(pointer);
+        CheckCudaPointer(modulus);
 
-        const int CTA_size = 256;
-        const int grid_size = (N + CTA_size - 1) / CTA_size;
-
-        mod_reduce_u64<<<grid_size, CTA_size>>>(res, d_p, N);
-        cudaDeviceSynchronize();
+        RNGTraits<Mode::AES>::generate_modular_uniform_random_number(
+            *this, pointer, modulus, log_size, mod_count, repeat_count,
+            entropy_input, additional_input);
     }
 
-    void AES_RNG::gen_random_u64_mod_p(int N, Modulus64* p, Data32 p_num,
-                                       Data64* res)
+    template <typename T>
+    __host__ void RNG<Mode::AES>::modular_uniform_random_number(
+        T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
+        int* mod_index, int repeat_count,
+        std::vector<unsigned char> additional_input)
     {
-        this->gen_random_bytes(N * sizeof(Data64), BLOCKS, THREADS, res,
-                               std::vector<unsigned char>());
+        if ((log_size == 0) || (repeat_count == 0))
+            return;
 
-        Modulus64* d_p;
-        cudaMalloc(&d_p, p_num * sizeof(Modulus64));
-        cudaMemcpy(d_p, p, p_num * sizeof(Modulus64), cudaMemcpyHostToDevice);
-        mod_reduce_u64<<<dim3(BLOCKS, p_num, 1), THREADS>>>(res, d_p, p_num, N);
-        cudaDeviceSynchronize();
+        CheckCudaPointer(pointer);
+        CheckCudaPointer(modulus);
+        CheckCudaPointer(mod_index);
+
+        std::vector<unsigned char> generated_entropy(this->key_len_);
+        if (1 != RAND_bytes(generated_entropy.data(), generated_entropy.size()))
+            throw std::runtime_error("RAND_bytes failed during reseed");
+
+        RNGTraits<Mode::AES>::generate_modular_uniform_random_number(
+            *this, pointer, modulus, log_size, mod_count, mod_index,
+            repeat_count, generated_entropy, additional_input);
     }
 
-    void AES_RNG::gen_random_u32(int N, Data32* res)
+    template <typename T>
+    __host__ void RNG<Mode::AES>::modular_uniform_random_number(
+        T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
+        int* mod_index, int repeat_count,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input)
     {
-        Data64* res_u64 = (Data64*) res;
-        this->gen_random_bytes(N * sizeof(Data32), BLOCKS, THREADS, res_u64,
-                               std::vector<unsigned char>());
-        cudaDeviceSynchronize();
-        res = (Data32*) res_u64;
+        if ((log_size == 0) || (repeat_count == 0))
+            return;
+
+        CheckCudaPointer(pointer);
+        CheckCudaPointer(modulus);
+        CheckCudaPointer(mod_index);
+
+        RNGTraits<Mode::AES>::generate_modular_uniform_random_number(
+            *this, pointer, modulus, log_size, mod_count, mod_index,
+            repeat_count, entropy_input, additional_input);
     }
 
-    void AES_RNG::gen_random_u32_mod_p(int N, Modulus32* p, Data32* res)
+    // --
+
+    template <typename T>
+    __host__ void RNG<Mode::AES>::normal_random_number(
+        T std_dev, T* pointer, const Data64 size,
+        std::vector<unsigned char> additional_input)
     {
-        Data64* res_u64 = (Data64*) res;
-        this->gen_random_bytes(N * sizeof(Data32), BLOCKS, THREADS, res_u64,
-                               std::vector<unsigned char>());
-        cudaDeviceSynchronize();
-        res = (Data32*) res_u64;
+        if (size == 0)
+            return;
 
-        Modulus32* d_p;
-        cudaMalloc(&d_p, sizeof(Modulus32));
-        cudaMemcpy(d_p, p, sizeof(Modulus32), cudaMemcpyHostToDevice);
+        CheckCudaPointer(pointer);
 
-        const int CTA_size = 256;
-        const int grid_size = (N + CTA_size - 1) / CTA_size;
+        std::vector<unsigned char> generated_entropy(this->key_len_);
+        if (1 != RAND_bytes(generated_entropy.data(), generated_entropy.size()))
+            throw std::runtime_error("RAND_bytes failed during reseed");
 
-        mod_reduce_u32<<<grid_size, CTA_size>>>(res, d_p, N);
-        cudaDeviceSynchronize();
+        RNGTraits<Mode::AES>::generate_normal_random_number(
+            *this, std_dev, pointer, size, generated_entropy, additional_input);
     }
 
-    void AES_RNG::gen_random_u32_mod_p(int N, Modulus32* p, Data32 p_num,
-                                       Data32* res)
+    template <typename T>
+    __host__ void RNG<Mode::AES>::normal_random_number(
+        T std_dev, T* pointer, const Data64 size,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input)
     {
-        Data64* res_u64 = (Data64*) res;
-        this->gen_random_bytes(N * sizeof(Data32), BLOCKS, THREADS, res_u64,
-                               std::vector<unsigned char>());
-        res = (Data32*) res_u64;
+        if (size == 0)
+            return;
 
-        Modulus32* d_p;
-        cudaMalloc(&d_p, p_num * sizeof(Modulus32));
-        cudaMemcpy(d_p, p, p_num * sizeof(Modulus32), cudaMemcpyHostToDevice);
+        CheckCudaPointer(pointer);
 
-        mod_reduce_u32<<<dim3(BLOCKS, p_num, 1), THREADS>>>(res, d_p, p_num, N);
-        cudaDeviceSynchronize();
+        RNGTraits<Mode::AES>::generate_normal_random_number(
+            *this, std_dev, pointer, size, entropy_input, additional_input);
     }
 
-    void AES_RNG::update(std::vector<unsigned char> additionalInput)
+    template <typename T, typename U>
+    __host__ void RNG<Mode::AES>::modular_normal_random_number(
+        U std_dev, T* pointer, Modulus<T> modulus, const Data64 size,
+        std::vector<unsigned char> additional_input)
     {
+        if (size == 0)
+            return;
 
-        if (additionalInput.size() < seedLen)
-        {
-            for (int i = 1; i <= seedLen - additionalInput.size(); i++)
-                additionalInput.push_back(0);
-        }
+        CheckCudaPointer(pointer);
 
-        EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
-        if (!ctx)
-            throw std::runtime_error(
-                "CTR_DRBG_Update: Failed to create EVP_CIPHER_CTX");
+        std::vector<unsigned char> generated_entropy(this->key_len_);
+        if (1 != RAND_bytes(generated_entropy.data(), generated_entropy.size()))
+            throw std::runtime_error("RAND_bytes failed during reseed");
 
-        if (1 != EVP_EncryptInit_ex(ctx, this->getEVPCipherECB(), nullptr,
-                                    (this->key).data(), nullptr))
-            throw std::runtime_error(
-                "CTR_DRBG_Update: EVP_EncryptInit_ex failed");
-
-        EVP_CIPHER_CTX_set_padding(ctx, 0);
-        std::vector<unsigned char> temp;
-        temp.reserve(seedLen);
-        const std::size_t blockSize = 16;
-        std::vector<unsigned char> outputBlock(blockSize);
-        std::vector<unsigned char> Vtemp(this->nonce);
-            
-        for (std::size_t i = 0; i < seedLen / blockSize; i++)
-        {
-            // Increment Vtemp in big-endian order.
-            for (int j = blockSize - 1; j >= 0; j--)
-            {
-                if (++Vtemp[j] != 0)
-                    break;
-            }
-            int outlen = 0;
-            if (1 != EVP_EncryptUpdate(ctx, outputBlock.data(), &outlen,
-                                       Vtemp.data(), blockSize))
-                throw std::runtime_error(
-                    "CTR_DRBG_Update: EVP_EncryptUpdate failed");
-            if (outlen != static_cast<int>(blockSize))
-                throw std::runtime_error(
-                    "CTR_DRBG_Update: Unexpected block size");
-            temp.insert(temp.end(), outputBlock.begin(), outputBlock.end());
-        }
-        EVP_CIPHER_CTX_free(ctx);
-
-        if (!additionalInput.empty())
-        {
-            if (additionalInput.size() != seedLen)
-                throw std::runtime_error("CTR_DRBG_Update: additional input "
-                                         "must be of length seedLen");
-            for (std::size_t i = 0; i < seedLen; i++)
-            {
-                temp[i] ^= additionalInput[i];
-            }
-        }
-        // Update internal state: new key is first keyLen bytes; new V is the
-        // remaining 16 bytes.
-        key.assign(temp.begin(), temp.begin() + keyLen);
-        nonce.assign(temp.begin() + keyLen, temp.end());
-        
-        switch (securityLevel)
-        {
-            case SecurityLevel::AES128:
-                keyExpansion(this->key, this->roundKeys);
-                break;
-            case SecurityLevel::AES192:
-                keyExpansion192(this->key, this->roundKeys);
-                break;
-            case SecurityLevel::AES256:
-                keyExpansion256(this->key, this->roundKeys);
-                break;
-            default:
-                throw std::runtime_error("Unsupported security level");
-        }
-        cudaMemcpy(this->d_nonce, (this->nonce).data(), 4 * sizeof(Data32),
-                   cudaMemcpyHostToDevice);
+        RNGTraits<Mode::AES>::generate_modular_normal_random_number(
+            *this, std_dev, pointer, modulus, size, generated_entropy,
+            additional_input);
     }
 
-    void AES_RNG::resetReseedCounter()
+    template <typename T, typename U>
+    __host__ void RNG<Mode::AES>::modular_normal_random_number(
+        U std_dev, T* pointer, Modulus<T> modulus, const Data64 size,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input)
     {
-        this->reseedCounter = 1;
+        if (size == 0)
+            return;
+
+        CheckCudaPointer(pointer);
+
+        RNGTraits<Mode::AES>::generate_modular_normal_random_number(
+            *this, std_dev, pointer, modulus, size, entropy_input,
+            additional_input);
     }
 
-    void AES_RNG::reseed(std::vector<unsigned char> additionalInput)
+    template <typename T, typename U>
+    __host__ void RNG<Mode::AES>::modular_normal_random_number(
+        U std_dev, T* pointer, Modulus<T>* modulus, Data64 log_size,
+        int mod_count, int repeat_count,
+        std::vector<unsigned char> additional_input)
     {
-        if (additionalInput.size() < seedLen - keyLen)
-        {
-            for (int i = 0; i < seedLen - keyLen - additionalInput.size(); i++)
-                additionalInput.push_back(0);
-        }
-        std::vector<unsigned char> entropyInput(keyLen, 0);
-        std::random_device rd;
-        std::mt19937_64 gen(rd());
-        std::uniform_int_distribution<Data32> dist(
-            0, std::numeric_limits<Data8>::max());
+        if ((log_size == 0) || (repeat_count == 0))
+            return;
 
-        for (int i = 0; i < keyLen; i++)
-            entropyInput[i] = dist(gen);
+        CheckCudaPointer(pointer);
+        CheckCudaPointer(modulus);
 
-        for (int i = 0; i < seedLen - keyLen; i++)
-            entropyInput.push_back(additionalInput[i]);
+        std::vector<unsigned char> generated_entropy(this->key_len_);
+        if (1 != RAND_bytes(generated_entropy.data(), generated_entropy.size()))
+            throw std::runtime_error("RAND_bytes failed during reseed");
 
-        std::vector<unsigned char> seedMaterial = DF(entropyInput, seedLen);
-        this->update(seedMaterial);
-        this->resetReseedCounter();
+        RNGTraits<Mode::AES>::generate_modular_normal_random_number(
+            *this, std_dev, pointer, modulus, log_size, mod_count, repeat_count,
+            generated_entropy, additional_input);
     }
 
-    void AES_RNG::printWorkingState()
+    template <typename T, typename U>
+    __host__ void RNG<Mode::AES>::modular_normal_random_number(
+        U std_dev, T* pointer, Modulus<T>* modulus, Data64 log_size,
+        int mod_count, int repeat_count,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input)
     {
-        std::cout << "------DRBG State------\n";
-        std::cout << "Key: " << std::hex << std::uppercase;
-        for (int i = 0; i < keyLen - 3; i += 4)
-            std::cout << (int) this->key[i] << (int) this->key[i + 1]
-                      << (int) this->key[i + 2] << (int) this->key[i + 3]
-                      << " ";
-        std::cout << std::endl << "V: ";
-        for (int i = 0; i < 13; i += 4)
-            std::cout << (int) this->nonce[i] << (int) this->nonce[i + 1]
-                      << (int) this->nonce[i + 2] << (int) this->nonce[i + 3]
-                      << " ";
-        std::cout << std::endl;
-        std::cout << std::dec << "Reseed Counter: " << reseedCounter
-                  << std::endl;
+        if ((log_size == 0) || (repeat_count == 0))
+            return;
+
+        CheckCudaPointer(pointer);
+        CheckCudaPointer(modulus);
+
+        RNGTraits<Mode::AES>::generate_modular_normal_random_number(
+            *this, std_dev, pointer, modulus, log_size, mod_count, repeat_count,
+            entropy_input, additional_input);
     }
 
-    // DF (Derivation Function) per NIST SP 800‑90A.
-    // According to NIST, the DF input should be constructed as follows:
-    // [requestedOutputBits (4 bytes) || inputLengthBits (4 bytes) || input ||
-    // 0x80 || padding] Then, encrypt S using AES-CBC with a zero key and zero
-    // IV to produce the seed.
-    std::vector<unsigned char>
-    AES_RNG::DF(const std::vector<unsigned char>& input, std::size_t outputLen)
+    template <typename T, typename U>
+    __host__ void RNG<Mode::AES>::modular_normal_random_number(
+        U std_dev, T* pointer, Modulus<T>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count,
+        std::vector<unsigned char> additional_input)
     {
-        unsigned int requestedBits = static_cast<unsigned int>(outputLen * 8);
-        std::vector<unsigned char> S;
-        S.push_back((requestedBits >> 24) & 0xFF);
-        S.push_back((requestedBits >> 16) & 0xFF);
-        S.push_back((requestedBits >> 8) & 0xFF);
-        S.push_back(requestedBits & 0xFF);
+        if ((log_size == 0) || (repeat_count == 0))
+            return;
 
-        unsigned int inputBits = static_cast<unsigned int>(input.size() * 8);
+        CheckCudaPointer(pointer);
+        CheckCudaPointer(modulus);
+        CheckCudaPointer(mod_index);
 
-        S.push_back((inputBits >> 24) & 0xFF);
-        S.push_back((inputBits >> 16) & 0xFF);
-        S.push_back((inputBits >> 8) & 0xFF);
-        S.push_back(inputBits & 0xFF);
+        std::vector<unsigned char> generated_entropy(this->key_len_);
+        if (1 != RAND_bytes(generated_entropy.data(), generated_entropy.size()))
+            throw std::runtime_error("RAND_bytes failed during reseed");
 
-        S.insert(S.end(), input.begin(), input.end());
-        S.push_back(0x80);
-        while (S.size() % 16 != 0)
-            S.push_back(0x00);
-
-        // Use a zero key whose length is equal to keyLen.
-        std::vector<unsigned char> zeroKey(16, 0x00);
-        unsigned char zeroIV[16] = {0};
-
-        EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
-        if (!ctx)
-            throw std::runtime_error("DF: Failed to create EVP_CIPHER_CTX");
-
-        if (1 != EVP_EncryptInit_ex(ctx, this->getEVPCipherECB(), nullptr,
-                                    zeroKey.data(), zeroIV))
-            throw std::runtime_error("DF: EVP_EncryptInit_ex failed");
-        EVP_CIPHER_CTX_set_padding(ctx, 0);
-
-        std::vector<unsigned char> cipher(S.size() + 16);
-        int outlen1 = 0, outlen2 = 0;
-        if (1 !=
-            EVP_EncryptUpdate(ctx, cipher.data(), &outlen1, S.data(), S.size()))
-            throw std::runtime_error("DF: EVP_EncryptUpdate failed");
-        if (1 != EVP_EncryptFinal_ex(ctx, cipher.data() + outlen1, &outlen2))
-            throw std::runtime_error("DF: EVP_EncryptFinal_ex failed");
-        EVP_CIPHER_CTX_free(ctx);
-
-        cipher.resize(outlen1 + outlen2);
-        if (cipher.size() > outputLen)
-            cipher.resize(outputLen);
-        return cipher;
+        RNGTraits<Mode::AES>::generate_modular_normal_random_number(
+            *this, std_dev, pointer, modulus, log_size, mod_count, mod_index,
+            repeat_count, generated_entropy, additional_input);
     }
+
+    template <typename T, typename U>
+    __host__ void RNG<Mode::AES>::modular_normal_random_number(
+        U std_dev, T* pointer, Modulus<T>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input)
+    {
+        if ((log_size == 0) || (repeat_count == 0))
+            return;
+
+        CheckCudaPointer(pointer);
+        CheckCudaPointer(modulus);
+        CheckCudaPointer(mod_index);
+
+        RNGTraits<Mode::AES>::generate_modular_normal_random_number(
+            *this, std_dev, pointer, modulus, log_size, mod_count, mod_index,
+            repeat_count, entropy_input, additional_input);
+    }
+
+    // --
+
+    template <typename T>
+    __host__ void RNG<Mode::AES>::ternary_random_number(
+        T* pointer, const Data64 size,
+        std::vector<unsigned char> additional_input)
+    {
+        if (size == 0)
+            return;
+
+        CheckCudaPointer(pointer);
+
+        std::vector<unsigned char> generated_entropy(this->key_len_);
+        if (1 != RAND_bytes(generated_entropy.data(), generated_entropy.size()))
+            throw std::runtime_error("RAND_bytes failed during reseed");
+
+        RNGTraits<Mode::AES>::generate_ternary_random_number(
+            *this, pointer, size, generated_entropy, additional_input);
+    }
+
+    template <typename T>
+    __host__ void RNG<Mode::AES>::ternary_random_number(
+        T* pointer, const Data64 size,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input)
+    {
+        if (size == 0)
+            return;
+
+        CheckCudaPointer(pointer);
+
+        RNGTraits<Mode::AES>::generate_ternary_random_number(
+            *this, pointer, size, entropy_input, additional_input);
+    }
+
+    template <typename T>
+    __host__ void RNG<Mode::AES>::modular_ternary_random_number(
+        T* pointer, Modulus<T> modulus, const Data64 size,
+        std::vector<unsigned char> additional_input)
+    {
+        if (size == 0)
+            return;
+
+        CheckCudaPointer(pointer);
+
+        std::vector<unsigned char> generated_entropy(this->key_len_);
+        if (1 != RAND_bytes(generated_entropy.data(), generated_entropy.size()))
+            throw std::runtime_error("RAND_bytes failed during reseed");
+
+        RNGTraits<Mode::AES>::generate_modular_ternary_random_number(
+            *this, pointer, modulus, size, generated_entropy, additional_input);
+    }
+
+    template <typename T>
+    __host__ void RNG<Mode::AES>::modular_ternary_random_number(
+        T* pointer, Modulus<T> modulus, const Data64 size,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input)
+    {
+        if (size == 0)
+            return;
+
+        CheckCudaPointer(pointer);
+
+        RNGTraits<Mode::AES>::generate_modular_ternary_random_number(
+            *this, pointer, modulus, size, entropy_input, additional_input);
+    }
+
+    template <typename T>
+    __host__ void RNG<Mode::AES>::modular_ternary_random_number(
+        T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
+        int repeat_count, std::vector<unsigned char> additional_input)
+    {
+        if ((log_size == 0) || (repeat_count == 0))
+            return;
+
+        CheckCudaPointer(pointer);
+        CheckCudaPointer(modulus);
+
+        std::vector<unsigned char> generated_entropy(this->key_len_);
+        if (1 != RAND_bytes(generated_entropy.data(), generated_entropy.size()))
+            throw std::runtime_error("RAND_bytes failed during reseed");
+
+        RNGTraits<Mode::AES>::generate_modular_ternary_random_number(
+            *this, pointer, modulus, log_size, mod_count, repeat_count,
+            generated_entropy, additional_input);
+    }
+
+    template <typename T>
+    __host__ void RNG<Mode::AES>::modular_ternary_random_number(
+        T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
+        int repeat_count, std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input)
+    {
+        if ((log_size == 0) || (repeat_count == 0))
+            return;
+
+        CheckCudaPointer(pointer);
+        CheckCudaPointer(modulus);
+
+        RNGTraits<Mode::AES>::generate_modular_ternary_random_number(
+            *this, pointer, modulus, log_size, mod_count, repeat_count,
+            entropy_input, additional_input);
+    }
+
+    template <typename T>
+    __host__ void RNG<Mode::AES>::modular_ternary_random_number(
+        T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
+        int* mod_index, int repeat_count,
+        std::vector<unsigned char> additional_input)
+    {
+        if ((log_size == 0) || (repeat_count == 0))
+            return;
+
+        CheckCudaPointer(pointer);
+        CheckCudaPointer(modulus);
+        CheckCudaPointer(mod_index);
+
+        std::vector<unsigned char> generated_entropy(this->key_len_);
+        if (1 != RAND_bytes(generated_entropy.data(), generated_entropy.size()))
+            throw std::runtime_error("RAND_bytes failed during reseed");
+
+        RNGTraits<Mode::AES>::generate_modular_ternary_random_number(
+            *this, pointer, modulus, log_size, mod_count, mod_index,
+            repeat_count, generated_entropy, additional_input);
+    }
+
+    template <typename T>
+    __host__ void RNG<Mode::AES>::modular_ternary_random_number(
+        T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
+        int* mod_index, int repeat_count,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input)
+    {
+        if ((log_size == 0) || (repeat_count == 0))
+            return;
+
+        CheckCudaPointer(pointer);
+        CheckCudaPointer(modulus);
+        CheckCudaPointer(mod_index);
+
+        RNGTraits<Mode::AES>::generate_modular_ternary_random_number(
+            *this, pointer, modulus, log_size, mod_count, mod_index,
+            repeat_count, entropy_input, additional_input);
+    }
+
+    template __host__ void RNG<Mode::AES>::uniform_random_number<Data32>(
+        Data32* pointer, const Data64 size,
+        std::vector<unsigned char> additional_input);
+    template __host__ void RNG<Mode::AES>::uniform_random_number<Data64>(
+        Data64* pointer, const Data64 size,
+        std::vector<unsigned char> additional_input);
+    template __host__ void RNG<Mode::AES>::uniform_random_number<Data32>(
+        Data32* pointer, const Data64 size,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+    template __host__ void RNG<Mode::AES>::uniform_random_number<Data64>(
+        Data64* pointer, const Data64 size,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+
+    template __host__ void
+    RNG<Mode::AES>::modular_uniform_random_number<Data32>(
+        Data32* pointer, Modulus<Data32> modulus, const Data64 size,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_uniform_random_number<Data64>(
+        Data64* pointer, Modulus<Data64> modulus, const Data64 size,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_uniform_random_number<Data32>(
+        Data32* pointer, Modulus<Data32> modulus, const Data64 size,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_uniform_random_number<Data64>(
+        Data64* pointer, Modulus<Data64> modulus, const Data64 size,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+
+    template __host__ void
+    RNG<Mode::AES>::modular_uniform_random_number<Data32>(
+        Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int repeat_count,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_uniform_random_number<Data64>(
+        Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int repeat_count,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_uniform_random_number<Data32>(
+        Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int repeat_count,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_uniform_random_number<Data64>(
+        Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int repeat_count,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+
+    template __host__ void
+    RNG<Mode::AES>::modular_uniform_random_number<Data32>(
+        Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_uniform_random_number<Data64>(
+        Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_uniform_random_number<Data32>(
+        Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_uniform_random_number<Data64>(
+        Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+
+    // --
+
+    template __host__ void RNG<Mode::AES>::normal_random_number<f32>(
+        f32 std_dev, f32* pointer, const Data64 size,
+        std::vector<unsigned char> additional_input);
+    template __host__ void RNG<Mode::AES>::normal_random_number<f64>(
+        f64 std_dev, f64* pointer, const Data64 size,
+        std::vector<unsigned char> additional_input);
+    template __host__ void RNG<Mode::AES>::normal_random_number<f32>(
+        f32 std_dev, f32* pointer, const Data64 size,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+    template __host__ void RNG<Mode::AES>::normal_random_number<f64>(
+        f64 std_dev, f64* pointer, const Data64 size,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data32, f32>(
+        f32 std_dev, Data32* pointer, Modulus<Data32> modulus,
+        const Data64 size, std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data32, f64>(
+        f64 std_dev, Data32* pointer, Modulus<Data32> modulus,
+        const Data64 size, std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data64, f32>(
+        f32 std_dev, Data64* pointer, Modulus<Data64> modulus,
+        const Data64 size, std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data64, f64>(
+        f64 std_dev, Data64* pointer, Modulus<Data64> modulus,
+        const Data64 size, std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data32, f32>(
+        f32 std_dev, Data32* pointer, Modulus<Data32> modulus,
+        const Data64 size, std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data32, f64>(
+        f64 std_dev, Data32* pointer, Modulus<Data32> modulus,
+        const Data64 size, std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data64, f32>(
+        f32 std_dev, Data64* pointer, Modulus<Data64> modulus,
+        const Data64 size, std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data64, f64>(
+        f64 std_dev, Data64* pointer, Modulus<Data64> modulus,
+        const Data64 size, std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data32, f32>(
+        f32 std_dev, Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int repeat_count,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data32, f64>(
+        f64 std_dev, Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int repeat_count,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data64, f32>(
+        f32 std_dev, Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int repeat_count,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data64, f64>(
+        f64 std_dev, Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int repeat_count,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data32, f32>(
+        f32 std_dev, Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int repeat_count,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data32, f64>(
+        f64 std_dev, Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int repeat_count,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data64, f32>(
+        f32 std_dev, Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int repeat_count,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data64, f64>(
+        f64 std_dev, Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int repeat_count,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data32, f32>(
+        f32 std_dev, Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data32, f64>(
+        f64 std_dev, Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data64, f32>(
+        f32 std_dev, Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data64, f64>(
+        f64 std_dev, Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data32, f32>(
+        f32 std_dev, Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data32, f64>(
+        f64 std_dev, Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data64, f32>(
+        f32 std_dev, Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_normal_random_number<Data64, f64>(
+        f64 std_dev, Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+
+    // --
+
+    template __host__ void RNG<Mode::AES>::ternary_random_number<Data32>(
+        Data32* pointer, const Data64 size,
+        std::vector<unsigned char> additional_input);
+    template __host__ void RNG<Mode::AES>::ternary_random_number<Data64>(
+        Data64* pointer, const Data64 size,
+        std::vector<unsigned char> additional_input);
+    template __host__ void RNG<Mode::AES>::ternary_random_number<Data32>(
+        Data32* pointer, const Data64 size,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+    template __host__ void RNG<Mode::AES>::ternary_random_number<Data64>(
+        Data64* pointer, const Data64 size,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+
+    template __host__ void
+    RNG<Mode::AES>::modular_ternary_random_number<Data32>(
+        Data32* pointer, Modulus<Data32> modulus, const Data64 size,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_ternary_random_number<Data64>(
+        Data64* pointer, Modulus<Data64> modulus, const Data64 size,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_ternary_random_number<Data32>(
+        Data32* pointer, Modulus<Data32> modulus, const Data64 size,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_ternary_random_number<Data64>(
+        Data64* pointer, Modulus<Data64> modulus, const Data64 size,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+
+    template __host__ void
+    RNG<Mode::AES>::modular_ternary_random_number<Data32>(
+        Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int repeat_count,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_ternary_random_number<Data64>(
+        Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int repeat_count,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_ternary_random_number<Data32>(
+        Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int repeat_count,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_ternary_random_number<Data64>(
+        Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int repeat_count,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+
+    template __host__ void
+    RNG<Mode::AES>::modular_ternary_random_number<Data32>(
+        Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_ternary_random_number<Data64>(
+        Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_ternary_random_number<Data32>(
+        Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+    template __host__ void
+    RNG<Mode::AES>::modular_ternary_random_number<Data64>(
+        Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
+        int mod_count, int* mod_index, int repeat_count,
+        std::vector<unsigned char>& entropy_input,
+        std::vector<unsigned char> additional_input);
+
 } // namespace rngongpu

@@ -10,160 +10,38 @@
 
 using namespace std;
 
-#define N (1 << 12)
-
-void test_aesrng_128()
-{
-    std::cout << "Testing 128 bit AES RNG\n";
-    // Instantiate the DRBG object with prediction resistance.
-    rngongpu::AES_RNG* rng =
-        new rngongpu::AES_RNG(false, rngongpu::SecurityLevel::AES128);
-    rng->printWorkingState();
-
-    // Reseed with no additional input
-    rng->reseed(std::vector<unsigned char>());
-    rng->printWorkingState();
-
-    // Generate 4096 doubles
-    cout << "**********AES-128 - NORMAL DISTRIBUTION F64**********\n";
-    f64 *d_res, *h_res;
-    cudaMalloc(&d_res, N * sizeof(f64));
-    rng->gen_random_f64(N, d_res);
-    h_res = new f64[N];
-    cudaMemcpy(h_res, d_res, N * sizeof(f64), cudaMemcpyDeviceToHost);
-
-    for (int i = 0; i <= N - 4; i += 4)
-        printf("%.6f %.6f %.6f %.6f\n", h_res[i], h_res[i + 1], h_res[i + 2],
-               h_res[i + 3]);
-
-    rng->printWorkingState();
-
-    // Generate 4096 u64 mod p
-    cout << "**********AES-128 - UNIFORM DISTRIBUTION U64 MOD P***********\n";
-    Data64 *d_res_u64, *h_res_u64;
-    cudaMalloc(&d_res_u64, N * sizeof(Data64));
-    Modulus64* p = new Modulus64(1265904160645881121UL);
-
-    rng->gen_random_u64_mod_p(N, p, d_res_u64);
-
-    h_res_u64 = new Data64[N];
-    cudaMemcpy(h_res_u64, d_res_u64, N * sizeof(Data64),
-               cudaMemcpyDeviceToHost);
-
-    for (int i = 0; i <= N - 4; i += 4)
-        printf("%llu %llu %llu %llu\n", h_res_u64[i], h_res_u64[i + 1],
-               h_res_u64[i + 2], h_res_u64[i + 3]);
-
-    rng->printWorkingState();
-
-    delete rng;
-    cudaFree(d_res);
-    cudaFree(d_res_u64);
-}
-
-void test_aesrng_192()
-{
-    std::cout << "Testing 192 bit AES RNG\n";
-    // Instantiate the DRBG object with prediction resistance.
-    rngongpu::AES_RNG* rng =
-        new rngongpu::AES_RNG(false, rngongpu::SecurityLevel::AES192);
-    rng->printWorkingState();
-
-    // Reseed with no additional input
-    rng->reseed(std::vector<unsigned char>());
-    rng->printWorkingState();
-
-    // Generate 4096 doubles
-    cout << "**********AES-192 - NORMAL DISTRIBUTION F64**********\n";
-    f64 *d_res, *h_res;
-    cudaMalloc(&d_res, N * sizeof(f64));
-    rng->gen_random_f64(N, d_res);
-    h_res = new f64[N];
-    cudaMemcpy(h_res, d_res, N * sizeof(f64), cudaMemcpyDeviceToHost);
-
-    for (int i = 0; i <= N - 4; i += 4)
-        printf("%.6f %.6f %.6f %.6f\n", h_res[i], h_res[i + 1], h_res[i + 2],
-               h_res[i + 3]);
-
-    rng->printWorkingState();
-
-    // Generate 4096 u64 mod p
-    cout << "**********AES-192 - UNIFORM DISTRIBUTION U64 MOD P***********\n";
-    Data64 *d_res_u64, *h_res_u64;
-    cudaMalloc(&d_res_u64, N * sizeof(Data64));
-    Modulus64* p = new Modulus64(1265904160645881121UL);
-
-    rng->gen_random_u64_mod_p(N, p, d_res_u64);
-
-    h_res_u64 = new Data64[N];
-    cudaMemcpy(h_res_u64, d_res_u64, N * sizeof(Data64),
-               cudaMemcpyDeviceToHost);
-
-    for (int i = 0; i <= N - 4; i += 4)
-        printf("%llu %llu %llu %llu\n", h_res_u64[i], h_res_u64[i + 1],
-               h_res_u64[i + 2], h_res_u64[i + 3]);
-
-    rng->printWorkingState();
-
-    delete rng;
-    cudaFree(d_res);
-    cudaFree(d_res_u64);
-}
-
-void test_aesrng_256()
-{
-    std::cout << "Testing 256 bit AES RNG\n";
-    // Instantiate the DRBG object with prediction resistance.
-    rngongpu::AES_RNG* rng =
-        new rngongpu::AES_RNG(false, rngongpu::SecurityLevel::AES256);
-    rng->printWorkingState();
-
-    // Reseed with no additional input
-    rng->reseed(std::vector<unsigned char>());
-    rng->printWorkingState();
-
-    // Generate 4096 doubles
-    cout << "**********AES-256 - NORMAL DISTRIBUTION F64**********\n";
-    f64 *d_res, *h_res;
-    cudaMalloc(&d_res, N * sizeof(f64));
-    rng->gen_random_f64(N, d_res);
-    h_res = new f64[N];
-    cudaMemcpy(h_res, d_res, N * sizeof(f64), cudaMemcpyDeviceToHost);
-
-    for (int i = 0; i <= N - 4; i += 4)
-        printf("%.6f %.6f %.6f %.6f\n", h_res[i], h_res[i + 1], h_res[i + 2],
-               h_res[i + 3]);
-
-    rng->printWorkingState();
-
-    // Generate 4096 u64 mod p
-    cout << "**********AES-256 - UNIFORM DISTRIBUTION U64 MOD P***********\n";
-    Data64 *d_res_u64, *h_res_u64;
-    cudaMalloc(&d_res_u64, N * sizeof(Data64));
-    Modulus64* p = new Modulus64(1265904160645881121UL);
-
-    rng->gen_random_u64_mod_p(N, p, d_res_u64);
-
-    h_res_u64 = new Data64[N];
-    cudaMemcpy(h_res_u64, d_res_u64, N * sizeof(Data64),
-               cudaMemcpyDeviceToHost);
-
-    for (int i = 0; i <= N - 4; i += 4)
-        printf("%llu %llu %llu %llu\n", h_res_u64[i], h_res_u64[i + 1],
-               h_res_u64[i + 2], h_res_u64[i + 3]);
-
-    rng->printWorkingState();
-
-    delete rng;
-    cudaFree(d_res);
-    cudaFree(d_res_u64);
-}
-
 int main(int argc, char* argv[])
 {
-    test_aesrng_128();
-    test_aesrng_192();
-    test_aesrng_256();
+    std::vector<unsigned char> entropy = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A,
+        0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15,
+        0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F};
+    std::vector<unsigned char> nonce = {0x20, 0x21, 0x22, 0x23,
+                                        0x24, 0x25, 0x26, 0x27};
+    std::vector<unsigned char> personalization = {};
+
+    rngongpu::RNG<rngongpu::Mode::AES> drbg(entropy, nonce, personalization,
+                                            rngongpu::SecurityLevel::AES128);
+    std::cout << "Instantiate: " << std::endl;
+    drbg.print_params();
+
+    int size = 65536;
+    f64* d_results;
+    cudaMalloc(&d_results, size * sizeof(f64));
+
+    drbg.normal_random_number(1.0, d_results, size);
+
+    f64* h_results = new f64[size];
+    cudaMemcpy(h_results, d_results, size * sizeof(f64),
+               cudaMemcpyDeviceToHost);
+
+    std::cout << "NORMAL DISTRIBUTION F64:" << std::endl;
+    for (int i = 0; i <= 32; i += 4)
+    {
+        std::cout << h_results[i] << ", " << h_results[i + 1] << ", "
+                  << h_results[i + 1] << ", " << h_results[i + 1] << ", "
+                  << std::endl;
+    }
 
     return EXIT_SUCCESS;
 }
