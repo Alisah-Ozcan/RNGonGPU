@@ -18,21 +18,21 @@ namespace rngongpu
 
     void AESCTRRNG::print_params()
     {
-        std::cout << "key: " << std::endl;
+        std::cout << "key: ";
         for (unsigned char byte : key)
         {
             std::cout << std::hex << std::setw(2) << std::setfill('0')
                       << static_cast<int>(byte);
         }
-        std::cout << std::dec << std::endl << std::endl;
+        std::cout << std::dec << std::endl;
 
-        std::cout << "V: " << std::endl;
+        std::cout << "V: ";
         for (unsigned char byte : V)
         {
             std::cout << std::hex << std::setw(2) << std::setfill('0')
                       << static_cast<int>(byte);
         }
-        std::cout << std::dec << std::endl << std::endl;
+        std::cout << std::dec << std::endl;
     }
 
     AESCTRRNG::AESCTRRNG(

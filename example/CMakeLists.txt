@@ -9,6 +9,7 @@ set(EXECUTABLES
     example example.cu
     example_cpu example_cpu.cu
     cuda_rng_example cuda_rng_example.cu
+    nist_tests nist_tests.cu
 )
 
 function(add_example exe source)

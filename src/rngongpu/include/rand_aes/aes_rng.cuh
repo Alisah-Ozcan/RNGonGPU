@@ -11,6 +11,7 @@
 #include <openssl/aes.h>
 #include <openssl/rand.h>
 #include <vector>
+#include <algorithm>
 #include <random>
 #include <iomanip>
 
@@ -62,7 +63,7 @@ namespace rngongpu
         Data32* round_keys_;
         Data32* d_nonce_;
 
-        const int thread_per_block_ = 512;
+        const int thread_per_block_ = 1024;
         int num_blocks_;
 
         friend struct RNGTraits<Mode::AES>;
@@ -192,8 +193,9 @@ namespace rngongpu
             }
             for (int i = 0; i < 256; i++)
                 features.SAES_d_[i] = SAES[i];
-
-            cudaMemcpy(features.d_nonce_, features.nonce_.data(),
+            std::vector<unsigned char> nonce_rev = features.nonce_;
+            std::reverse(nonce_rev.begin(), nonce_rev.end());
+            cudaMemcpy(features.d_nonce_, nonce_rev.data(),
                        4 * sizeof(Data32), cudaMemcpyHostToDevice);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
         }
@@ -317,13 +319,6 @@ namespace rngongpu
         static __host__ void update(ModeFeature<Mode::AES>& features,
                                     std::vector<unsigned char> additional_input)
         {
-            if (additional_input.size() < features.seed_len_)
-            {
-                for (int i = 1;
-                     i <= features.seed_len_ - additional_input.size(); i++)
-                    additional_input.push_back(0);
-            }
-
             EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
             if (!ctx)
                 throw std::runtime_error("Error: Failed to create "
@@ -360,7 +355,6 @@ namespace rngongpu
                 temp.insert(temp.end(), outputBlock.begin(), outputBlock.end());
             }
             EVP_CIPHER_CTX_free(ctx);
-
             if (!additional_input.empty())
             {
                 if (additional_input.size() != features.seed_len_)
@@ -394,7 +388,9 @@ namespace rngongpu
                                              "level in CTR_DRBG_Update!");
             }
 
-            cudaMemcpy(features.d_nonce_, features.nonce_.data(),
+            std::vector<unsigned char> nonce_rev = features.nonce_;
+            std::reverse(nonce_rev.begin(), nonce_rev.end());
+            cudaMemcpy(features.d_nonce_, nonce_rev.data(),
                        4 * sizeof(Data32), cudaMemcpyHostToDevice);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
         }
@@ -410,7 +406,9 @@ namespace rngongpu
                 carry = sum >> 8; // remainder after div 256.
             }
 
-            cudaMemcpy(features.d_nonce_, features.nonce_.data(),
+            std::vector<unsigned char> nonce_rev = features.nonce_;
+            std::reverse(nonce_rev.begin(), nonce_rev.end());
+            cudaMemcpy(features.d_nonce_, nonce_rev.data(),
                        4 * sizeof(Data32), cudaMemcpyHostToDevice);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
         }
@@ -426,7 +424,6 @@ namespace rngongpu
             {
                 reseed(features, entropy_input, additional_input);
             }
-
             std::vector<unsigned char> additional_input_in;
             if (additional_input.size() != 0)
             {
@@ -439,7 +436,6 @@ namespace rngongpu
                 additional_input_in =
                     std::vector<unsigned char>(features.seed_len_, 0);
             }
-
             Data32 num_u64 =
                 static_cast<Data32>((requested_number_of_bytes + 7) / 8);
 
@@ -458,7 +454,7 @@ namespace rngongpu
                     counterWithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBoxCihangir<<<
                         features.num_blocks_, features.thread_per_block_>>>(
                         features.d_nonce_, features.round_keys_, features.t0_,
-                        features.t4_, range, features.SAES_d_, pointer,
+                        features.t4_, range, features.SAES_d_, threadCount, pointer,
                         num_u64);
                     RNGONGPU_CUDA_CHECK(cudaGetLastError());
                     break;
@@ -466,14 +462,14 @@ namespace rngongpu
                     counter192WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox<<<
                         features.num_blocks_, features.thread_per_block_>>>(
                         features.d_nonce_, features.round_keys_, features.t0_,
-                        features.t4_, range, pointer, num_u64);
+                        features.t4_, range, threadCount, pointer, num_u64);
                     RNGONGPU_CUDA_CHECK(cudaGetLastError());
                     break;
                 case SecurityLevel::AES256:
                     counter256WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox<<<
                         features.num_blocks_, features.thread_per_block_>>>(
                         features.d_nonce_, features.round_keys_, features.t0_,
-                        features.t4_, range, pointer, num_u64);
+                        features.t4_, range, threadCount, pointer, num_u64);
                     RNGONGPU_CUDA_CHECK(cudaGetLastError());
                     break;
                 default:
@@ -482,8 +478,7 @@ namespace rngongpu
             }
 
             cudaFree(range); // Remove it!
-
-            increment_nonce(features, num_u64 + 1 / 2);
+            increment_nonce(features, (num_u64 + 1) / 2);
             update(features, additional_input_in);
             features.reseed_counter_ +=
                 (requested_number_of_bytes / features.max_bytes_per_request_ +
@@ -496,20 +491,10 @@ namespace rngongpu
                std::vector<unsigned char> additional_input)
         {
             std::vector<unsigned char> additional_input_in = additional_input;
-            if (additional_input_in.size() <
-                features.seed_len_ - features.key_len_)
-            {
-                for (int i = 0; i < features.seed_len_ - features.key_len_ -
-                                        additional_input_in.size();
-                     i++)
-                    additional_input_in.push_back(0);
-            }
-
             std::vector<unsigned char> seed_material = entropy_input;
             seed_material.insert(seed_material.end(),
                                  additional_input_in.begin(),
                                  additional_input_in.end());
-
             seed_material = derivation_function(features, seed_material,
                                                 features.seed_len_);
 
@@ -869,7 +854,7 @@ namespace rngongpu
 
         ~RNG();
 
-        void print_params();
+        void print_params(std::ostream& out = std::cout);
 
         void reseed(const std::vector<unsigned char>& additional_input =
                         std::vector<unsigned char>());
