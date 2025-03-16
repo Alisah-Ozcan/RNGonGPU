@@ -9,12 +9,12 @@
 namespace rngongpu
 {
     RNG<Mode::AES>::RNG(
-        const std::vector<unsigned char>& key,
+        const std::vector<unsigned char>& entropyInput,
         const std::vector<unsigned char>& nonce,
         const std::vector<unsigned char>& personalization_string,
         SecurityLevel security_level, bool prediction_resistance_enabled)
     {
-        RNGTraits<Mode::AES>::initialize(*this, key, nonce,
+        RNGTraits<Mode::AES>::initialize(*this, entropyInput, nonce,
                                          personalization_string, security_level,
                                          prediction_resistance_enabled);
     }
@@ -24,35 +24,23 @@ namespace rngongpu
         RNGTraits<Mode::AES>::clear(*this);
     }
 
-    void RNG<Mode::AES>::print_params()
+    void RNG<Mode::AES>::print_params(std::ostream& out)
     {
-        std::cout << "Key: " << std::endl;
+        out << "\tKey\t= ";
         for (unsigned char byte : this->key_)
         {
-            std::cout << std::hex << std::setw(2) << std::setfill('0')
-                      << static_cast<int>(byte);
+            out << std::hex << std::setw(2) << std::setfill('0')
+                << static_cast<int>(byte);
         }
-        std::cout << std::dec << std::endl << std::endl;
+        out << std::endl;
 
-        std::cout << "Nonce: " << std::endl;
+        out << "\tV\t= ";
         for (unsigned char byte : this->nonce_)
         {
-            std::cout << std::hex << std::setw(2) << std::setfill('0')
-                      << static_cast<int>(byte);
+            out << std::hex << std::setw(2) << std::setfill('0')
+                << static_cast<int>(byte);
         }
-        std::cout << std::dec << std::endl << std::endl;
-    }
-
-    void
-    RNG<Mode::AES>::reseed(const std::vector<unsigned char>& additional_input)
-    {
-        std::vector<unsigned char> generated_entropy_input(this->key_len_);
-        if (1 != RAND_bytes(generated_entropy_input.data(),
-                            generated_entropy_input.size()))
-            throw std::runtime_error("RAND_bytes failed during reseed");
-
-        RNGTraits<Mode::AES>::reseed(*this, generated_entropy_input,
-                                     additional_input);
+        out << std::dec << std::endl << std::endl;
     }
 
     void

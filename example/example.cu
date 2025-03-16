@@ -29,7 +29,8 @@ int main(int argc, char* argv[])
     f64* d_results;
     cudaMalloc(&d_results, size * sizeof(f64));
 
-    drbg.normal_random_number(1.0, d_results, size);
+    std::vector<unsigned char> additional_input = {};
+    drbg.normal_random_number(1.0, d_results, size, additional_input);
 
     f64* h_results = new f64[size];
     cudaMemcpy(h_results, d_results, size * sizeof(f64),

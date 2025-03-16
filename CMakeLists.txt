@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Developer: Alişah Özcan
 
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 3.26)
 project(RNGonGPU VERSION 1.0 LANGUAGES C CXX CUDA ASM)
 
 set(BINARY_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/bin)
@@ -38,4 +38,14 @@ option(RNGonGPU_BUILD_EXAMPLES "Build RNGonGPU Examples" OFF)
 message(STATUS "RNGonGPU_BUILD_EXAMPLES: ${RNGonGPU_BUILD_EXAMPLES}")
 if(RNGonGPU_BUILD_EXAMPLES)
     add_subdirectory(example)
+endif()
+
+#########
+# Tests #
+#########
+
+option(RNGonGPU_BUILD_TESTS "Build RNGonGPU Tests" OFF)
+message(STATUS "RNGonGPU_BUILD_TESTS: ${RNGonGPU_BUILD_TESTS}")
+if(RNGonGPU_BUILD_TESTS)
+    add_subdirectory(test)
 endif()
