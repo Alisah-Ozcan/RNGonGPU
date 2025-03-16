@@ -15,13 +15,14 @@
 
 namespace rngongpu
 {
-    __device__ Data64 reverseBytesULL(Data64 x) {
+    __device__ Data64 reverseBytesULL(Data64 x)
+    {
         int2 t = *reinterpret_cast<int2*>(&x);
         int2 r;
-        
+
         r.x = __byte_perm(t.y, 0, 0x0123);
         r.y = __byte_perm(t.x, 0, 0x0123);
-        
+
         return *reinterpret_cast<Data64*>(&r);
     }
     __device__ Data32 arithmeticRightShift(Data32 x, Data32 n)
@@ -333,7 +334,7 @@ namespace rngongpu
                  ((Data32) Sbox[((t2 & 0xFF) / 4)][warpThreadIndex]
                                [((t2 & 0xFF) % 4)]) ^
                  rkS[43];
-                 
+
             // Overflow
             if (pt3Init == MAX_U32)
             {
@@ -354,14 +355,14 @@ namespace rngongpu
             {
                 rng_res[2 * rangeCount * totalThreadCount + 2 * threadIndex] =
                     reverseBytesULL(res_num1);
-                rng_res[2 * rangeCount * totalThreadCount + 2 * threadIndex + 1] =
-                    reverseBytesULL(res_num2);
+                rng_res[2 * rangeCount * totalThreadCount + 2 * threadIndex +
+                        1] = reverseBytesULL(res_num2);
             }
             else if (2 * rangeCount * totalThreadCount + 2 * threadIndex < N)
             {
                 rng_res[2 * rangeCount * totalThreadCount + 2 * threadIndex] =
                     reverseBytesULL(res_num1);
-            } 
+            }
         }
     }
 
@@ -404,10 +405,11 @@ namespace rngongpu
 
         Data32 pt0Init, pt1Init, pt2Init, pt3Init;
         Data32 s0, s1, s2, s3;
-        pt0Init = pt[0];
-        pt1Init = pt[1];
-        pt2Init = pt[2];
-        pt3Init = pt[3];
+
+        pt0Init = pt[3];
+        pt1Init = pt[2];
+        pt2Init = pt[1];
+        pt3Init = pt[0];
 
         Data32 threadRange = *range;
         Data64 threadRangeStart = pt2Init;
@@ -508,10 +510,6 @@ namespace rngongpu
                  (t4S[(t1 >> 8) & 0xff][warpThreadIndexSBox] & 0x0000FF00) ^
                  (t4S[(t2) &0xFF][warpThreadIndexSBox] & 0x000000FF) ^ rkS[51];
 
-            /*if (threadIndex == 0 && rangeCount == 0) {
-                printf("Ciphertext : %08x %08x %08x %08x\n", s0, s1, s2, s3);
-            }*/
-
             // Overflow
             if (pt3Init == MAX_U32)
             {
@@ -533,14 +531,14 @@ namespace rngongpu
             {
                 rng_res[2 * rangeCount * totalThreadCount + 2 * threadIndex] =
                     reverseBytesULL(res_num1);
-                rng_res[2 * rangeCount * totalThreadCount + 2 * threadIndex + 1] =
-                    reverseBytesULL(res_num2);
+                rng_res[2 * rangeCount * totalThreadCount + 2 * threadIndex +
+                        1] = reverseBytesULL(res_num2);
             }
             else if (2 * rangeCount * totalThreadCount + 2 * threadIndex < N)
             {
                 rng_res[2 * rangeCount * totalThreadCount + 2 * threadIndex] =
                     reverseBytesULL(res_num1);
-            } 
+            }
         }
     }
 
@@ -583,10 +581,11 @@ namespace rngongpu
 
         Data32 pt0Init, pt1Init, pt2Init, pt3Init;
         Data32 s0, s1, s2, s3;
-        pt0Init = pt[0];
-        pt1Init = pt[1];
-        pt2Init = pt[2];
-        pt3Init = pt[3];
+
+        pt0Init = pt[3];
+        pt1Init = pt[2];
+        pt2Init = pt[1];
+        pt3Init = pt[0];
 
         Data32 threadRange = *range;
         Data64 threadRangeStart = pt2Init;
@@ -687,10 +686,6 @@ namespace rngongpu
                  (t4S[(t1 >> 8) & 0xff][warpThreadIndexSBox] & 0x0000FF00) ^
                  (t4S[(t2) &0xFF][warpThreadIndexSBox] & 0x000000FF) ^ rkS[59];
 
-            // if (threadIndex == 0 && rangeCount == 0) {
-            // printf("Ciphertext : %08x %08x %08x %08x\n", s0, s1, s2, s3);
-            // }
-
             // Overflow
             if (pt3Init == MAX_U32)
             {
@@ -713,14 +708,14 @@ namespace rngongpu
             {
                 rng_res[2 * rangeCount * totalThreadCount + 2 * threadIndex] =
                     reverseBytesULL(res_num1);
-                rng_res[2 * rangeCount * totalThreadCount + 2 * threadIndex + 1] =
-                    reverseBytesULL(res_num2);
+                rng_res[2 * rangeCount * totalThreadCount + 2 * threadIndex +
+                        1] = reverseBytesULL(res_num2);
             }
             else if (2 * rangeCount * totalThreadCount + 2 * threadIndex < N)
             {
                 rng_res[2 * rangeCount * totalThreadCount + 2 * threadIndex] =
                     reverseBytesULL(res_num1);
-            } 
+            }
         }
     }
 

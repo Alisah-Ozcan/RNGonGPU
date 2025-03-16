@@ -1,0 +1,24 @@
+# CAVS 14.3
+# DRBG800-90A information for "drbg_pr"
+# Generated on Tue Apr 02 15:32:17 2013
+# 7670f3cca67f62970aefe331a05116af37d745d6e5d4cdf2840d06d2123301a32b3c681d94e8520d92b74b03f90462192be311330e0679353d1c00989cec4a91
+
+# CTR_DRBG options: 3KeyTDEA use df :: AES-128 use df :: AES-192 use df :: AES-256 use df :: 3KeyTDEA no df :: AES-128 no df :: AES-192 no df :: AES-256 no df
+
+[AES-128 use df]
+[PredictionResistance = False]
+[EntropyInputLen = 128]
+[NonceLen = 64]
+[PersonalizationStringLen = 0]
+[AdditionalInputLen = 0]
+[ReturnedBitsLen = 512]
+
+COUNT = 0
+EntropyInput = 0f65da13dca407999d4773c2b4a11d85
+Nonce = 5209e5b4ed82a234
+PersonalizationString = 
+EntropyInputReseed = 1dea0a12c52bf64339dd291c80d8ca89
+AdditionalInputReseed = 
+AdditionalInput = 
+AdditionalInput = 
+ReturnedBits = 2859cc468a76b08661ffd23b28547ffd0997ad526a0f51261b99ed3a37bd407bf418dbe6c6c3e26ed0ddefcb7474d899bd99f3655427519fc5b4057bcaf306d4

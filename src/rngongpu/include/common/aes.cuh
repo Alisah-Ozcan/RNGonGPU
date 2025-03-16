@@ -607,7 +607,7 @@ namespace rngongpu
     counter256WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox(
         Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64* range,
         Data32 totalThreadCount, Data64* rng_res, Data32 N);
-    
+
     __device__ Data64 reverseBytesULL(Data64 x);
 
 } // namespace rngongpu

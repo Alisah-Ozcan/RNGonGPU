@@ -6,7 +6,7 @@
 
 namespace rngongpu
 {
-    static std::vector<unsigned char> uint32ToBytes(unsigned int x)
+    static std::vector<unsigned char> uint32_to_bytes(unsigned int x)
     {
         std::vector<unsigned char> bytes(4);
         bytes[0] = (x >> 24) & 0xFF;
@@ -77,22 +77,6 @@ namespace rngongpu
         update(seed);
     }
 
-    void AESCTRRNG::reseed(const std::vector<unsigned char>& additional_input)
-    {
-        std::vector<unsigned char> newEntropy(key_len);
-        if (1 != RAND_bytes(newEntropy.data(), newEntropy.size()))
-            throw std::runtime_error("RAND_bytes failed during reseed");
-
-        std::vector<unsigned char> seed_material = newEntropy;
-        seed_material.insert(seed_material.end(), additional_input.begin(),
-                             additional_input.end());
-
-        std::vector<unsigned char> seed =
-            derivation_function(seed_material, seed_len);
-        update(seed);
-        reseed_counter = 1;
-    }
-
     void AESCTRRNG::reseed(const std::vector<unsigned char>& entropy_input,
                            const std::vector<unsigned char>& additional_input)
     {
@@ -106,116 +90,16 @@ namespace rngongpu
         reseed_counter = 1;
     }
 
-    std::vector<unsigned char>
-    AESCTRRNG::generate_bytes(std::size_t requested_number_of_bytes)
-    {
-        if (prediction_resistance_enabled || reseed_counter >= RESEED_INTERVAL)
-        {
-            reseed();
-        }
-
-        std::vector<unsigned char> output;
-        output.reserve(requested_number_of_bytes);
-
-        EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
-        if (!ctx)
-            throw std::runtime_error(
-                "getRandomBytes: Failed to create EVP_CIPHER_CTX");
-
-        if (1 != EVP_EncryptInit_ex(ctx, getEVPCipherECB(), nullptr, key.data(),
-                                    nullptr))
-            throw std::runtime_error(
-                "getRandomBytes: EVP_EncryptInit_ex failed");
-        EVP_CIPHER_CTX_set_padding(ctx, 0);
-
-        std::vector<unsigned char> block(block_len);
-        int outlen = 0;
-        while (output.size() < requested_number_of_bytes)
-        {
-            incrementV();
-
-            if (1 != EVP_EncryptUpdate(ctx, block.data(), &outlen, V.data(),
-                                       block_len))
-            {
-                throw std::runtime_error(
-                    "getRandomBytes: EVP_EncryptUpdate failed");
-            }
-
-            if (outlen != static_cast<int>(block_len))
-            {
-                throw std::runtime_error(
-                    "getRandomBytes: Unexpected block size");
-            }
-
-            output.insert(output.end(), block.begin(), block.end());
-        }
-        EVP_CIPHER_CTX_free(ctx);
-
-        output.resize(requested_number_of_bytes);
-
-        update(std::vector<unsigned char>());
-
-        reseed_counter++;
-
-        return output;
-    }
-
     std::vector<unsigned char> AESCTRRNG::generate_bytes(
         std::size_t requested_number_of_bytes,
         const std::vector<unsigned char>& additional_input)
     {
-        if (prediction_resistance_enabled || reseed_counter >= RESEED_INTERVAL)
-        {
-            reseed(additional_input);
-        }
+        std::vector<unsigned char> entropy_input(key_len);
+        if (1 != RAND_bytes(entropy_input.data(), entropy_input.size()))
+            throw std::runtime_error("RAND_bytes failed during reseed");
 
-        std::vector<unsigned char> additional_input_in;
-        if (additional_input.size() != 0)
-        {
-            additional_input_in =
-                derivation_function(additional_input, seed_len);
-            update(additional_input_in);
-        }
-        else
-        {
-            additional_input_in = std::vector<unsigned char>(seed_len, 0);
-        }
-
-        std::vector<unsigned char> temp;
-        temp.reserve(requested_number_of_bytes);
-
-        EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
-        if (!ctx)
-            throw std::runtime_error("Failed to create EVP_CIPHER_CTX");
-
-        if (1 != EVP_EncryptInit_ex(ctx, getEVPCipherECB(), nullptr, key.data(),
-                                    nullptr))
-            throw std::runtime_error("EVP_EncryptInit_ex failed");
-        EVP_CIPHER_CTX_set_padding(ctx, 0);
-
-        std::vector<unsigned char> block(block_len);
-        int outlen = 0;
-        while (temp.size() < requested_number_of_bytes)
-        {
-            incrementV();
-
-            if (1 != EVP_EncryptUpdate(ctx, block.data(), &outlen, V.data(),
-                                       block_len))
-                throw std::runtime_error("EVP_EncryptUpdate failed");
-
-            if (outlen != static_cast<int>(block_len))
-                throw std::runtime_error("Unexpected block size");
-
-            temp.insert(temp.end(), block.begin(), block.end());
-        }
-        EVP_CIPHER_CTX_free(ctx);
-        temp.resize(requested_number_of_bytes);
-
-        update(additional_input_in);
-
-        reseed_counter++;
-
-        return temp;
+        return generate_bytes(requested_number_of_bytes, entropy_input,
+                              additional_input);
     }
 
     std::vector<unsigned char> AESCTRRNG::generate_bytes(
@@ -223,21 +107,24 @@ namespace rngongpu
         const std::vector<unsigned char>& entropy_input,
         const std::vector<unsigned char>& additional_input)
     {
+        std::vector<unsigned char> additional_input_in;
         if (prediction_resistance_enabled || reseed_counter >= RESEED_INTERVAL)
         {
             reseed(entropy_input, additional_input);
-        }
-
-        std::vector<unsigned char> additional_input_in;
-        if (additional_input.size() != 0)
-        {
-            additional_input_in =
-                derivation_function(additional_input, seed_len);
-            update(additional_input_in);
+            additional_input_in = std::vector<unsigned char>(seed_len, 0);
         }
         else
         {
-            additional_input_in = std::vector<unsigned char>(seed_len, 0);
+            if (additional_input.size() != 0)
+            {
+                additional_input_in =
+                    derivation_function(additional_input, seed_len);
+                update(additional_input_in);
+            }
+            else
+            {
+                additional_input_in = std::vector<unsigned char>(seed_len, 0);
+            }
         }
 
         std::vector<unsigned char> temp;
@@ -287,11 +174,11 @@ namespace rngongpu
     {
         unsigned int input_bits =
             static_cast<unsigned int>(input_string.size());
-        std::vector<unsigned char> S = uint32ToBytes(input_bits);
+        std::vector<unsigned char> S = uint32_to_bytes(input_bits);
 
         unsigned int requested_bit =
             static_cast<unsigned int>(no_of_bits_to_return);
-        std::vector<unsigned char> len_bytes = uint32ToBytes(requested_bit);
+        std::vector<unsigned char> len_bytes = uint32_to_bytes(requested_bit);
 
         S.insert(S.end(), len_bytes.begin(), len_bytes.end());
         S.insert(S.end(), input_string.begin(), input_string.end());
@@ -312,7 +199,7 @@ namespace rngongpu
 
         while (temp.size() < (key_len + out_len))
         {
-            std::vector<unsigned char> IV = uint32ToBytes(i);
+            std::vector<unsigned char> IV = uint32_to_bytes(i);
             while (IV.size() < out_len)
             {
                 IV.push_back(0x00);
@@ -349,9 +236,8 @@ namespace rngongpu
 
     void AESCTRRNG::update(const std::vector<unsigned char>& provided_data)
     {
-        const std::size_t seedlen = seed_len;
         std::vector<unsigned char> temp;
-        temp.reserve(seedlen);
+        temp.reserve(seed_len);
 
         EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
         if (!ctx)
@@ -362,9 +248,9 @@ namespace rngongpu
             throw std::runtime_error("update: EVP_EncryptInit_ex failed");
         EVP_CIPHER_CTX_set_padding(ctx, 0);
 
-        std::vector<unsigned char> outputBlock(block_len);
+        std::vector<unsigned char> output_block(block_len);
         std::vector<unsigned char> Vtemp = V;
-        for (std::size_t i = 0; i < seedlen / block_len; i++)
+        while (temp.size() < seed_len)
         {
             for (int j = block_len - 1; j >= 0; j--)
             {
@@ -372,28 +258,28 @@ namespace rngongpu
                     break;
             }
             int outlen = 0;
-            if (1 != EVP_EncryptUpdate(ctx, outputBlock.data(), &outlen,
+            if (1 != EVP_EncryptUpdate(ctx, output_block.data(), &outlen,
                                        Vtemp.data(), block_len))
                 throw std::runtime_error("update: EVP_EncryptUpdate failed");
             if (outlen != static_cast<int>(block_len))
                 throw std::runtime_error("update: Unexpected block size");
-            temp.insert(temp.end(), outputBlock.begin(), outputBlock.end());
+            temp.insert(temp.end(), output_block.begin(), output_block.end());
         }
         EVP_CIPHER_CTX_free(ctx);
 
         if (!provided_data.empty())
         {
-            if (provided_data.size() != seedlen)
+            if (provided_data.size() != seed_len)
                 throw std::runtime_error("update: additional input "
                                          "must be of length seedLen");
-            for (std::size_t i = 0; i < seedlen; i++)
+            for (std::size_t i = 0; i < seed_len; i++)
             {
                 temp[i] ^= provided_data[i];
             }
         }
 
         key.assign(temp.begin(), temp.begin() + key_len);
-        V.assign(temp.begin() + key_len, temp.end());
+        V.assign(temp.begin() + key_len, temp.begin() + seed_len);
     }
 
     void AESCTRRNG::incrementV()

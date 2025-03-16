@@ -195,8 +195,8 @@ namespace rngongpu
                 features.SAES_d_[i] = SAES[i];
             std::vector<unsigned char> nonce_rev = features.nonce_;
             std::reverse(nonce_rev.begin(), nonce_rev.end());
-            cudaMemcpy(features.d_nonce_, nonce_rev.data(),
-                       4 * sizeof(Data32), cudaMemcpyHostToDevice);
+            cudaMemcpy(features.d_nonce_, nonce_rev.data(), 4 * sizeof(Data32),
+                       cudaMemcpyHostToDevice);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
         }
 
@@ -333,11 +333,10 @@ namespace rngongpu
 
             std::vector<unsigned char> temp;
             temp.reserve(features.seed_len_);
-            std::vector<unsigned char> outputBlock(features.block_len_);
+            std::vector<unsigned char> output_block(features.block_len_);
             std::vector<unsigned char> Vtemp(features.nonce_);
 
-            for (std::size_t i = 0;
-                 i < features.seed_len_ / features.block_len_; i++)
+            while (temp.size() < features.seed_len_)
             {
                 for (int j = features.block_len_ - 1; j >= 0; j--)
                 {
@@ -345,16 +344,17 @@ namespace rngongpu
                         break;
                 }
                 int outlen = 0;
-                if (1 != EVP_EncryptUpdate(ctx, outputBlock.data(), &outlen,
+                if (1 != EVP_EncryptUpdate(ctx, output_block.data(), &outlen,
                                            Vtemp.data(), features.block_len_))
                     throw std::runtime_error(
-                        "Error: EVP_EncryptUpdate failed in CTR_DRBG_Update!");
+                        "update: EVP_EncryptUpdate failed");
                 if (outlen != static_cast<int>(features.block_len_))
-                    throw std::runtime_error(
-                        "Error: Unexpected block size in CTR_DRBG_Update!");
-                temp.insert(temp.end(), outputBlock.begin(), outputBlock.end());
+                    throw std::runtime_error("update: Unexpected block size");
+                temp.insert(temp.end(), output_block.begin(),
+                            output_block.end());
             }
             EVP_CIPHER_CTX_free(ctx);
+
             if (!additional_input.empty())
             {
                 if (additional_input.size() != features.seed_len_)
@@ -370,7 +370,7 @@ namespace rngongpu
             features.key_.assign(temp.begin(),
                                  temp.begin() + features.key_len_);
             features.nonce_.assign(temp.begin() + features.key_len_,
-                                   temp.end());
+                                   temp.begin() + features.seed_len_);
 
             switch (features.security_level_)
             {
@@ -390,8 +390,8 @@ namespace rngongpu
 
             std::vector<unsigned char> nonce_rev = features.nonce_;
             std::reverse(nonce_rev.begin(), nonce_rev.end());
-            cudaMemcpy(features.d_nonce_, nonce_rev.data(),
-                       4 * sizeof(Data32), cudaMemcpyHostToDevice);
+            cudaMemcpy(features.d_nonce_, nonce_rev.data(), 4 * sizeof(Data32),
+                       cudaMemcpyHostToDevice);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
         }
 
@@ -408,8 +408,8 @@ namespace rngongpu
 
             std::vector<unsigned char> nonce_rev = features.nonce_;
             std::reverse(nonce_rev.begin(), nonce_rev.end());
-            cudaMemcpy(features.d_nonce_, nonce_rev.data(),
-                       4 * sizeof(Data32), cudaMemcpyHostToDevice);
+            cudaMemcpy(features.d_nonce_, nonce_rev.data(), 4 * sizeof(Data32),
+                       cudaMemcpyHostToDevice);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
         }
 
@@ -419,23 +419,29 @@ namespace rngongpu
                          const std::vector<unsigned char>& entropy_input,
                          const std::vector<unsigned char>& additional_input)
         {
+            std::vector<unsigned char> additional_input_in;
             if (features.is_prediction_resistance_enabled_ ||
                 features.reseed_counter_ >= features.reseed_interval_)
             {
                 reseed(features, entropy_input, additional_input);
-            }
-            std::vector<unsigned char> additional_input_in;
-            if (additional_input.size() != 0)
-            {
-                additional_input_in = derivation_function(
-                    features, additional_input, features.seed_len_);
-                update(features, additional_input_in);
-            }
-            else
-            {
                 additional_input_in =
                     std::vector<unsigned char>(features.seed_len_, 0);
             }
+            else
+            {
+                if (additional_input.size() != 0)
+                {
+                    additional_input_in = derivation_function(
+                        features, additional_input, features.seed_len_);
+                    update(features, additional_input_in);
+                }
+                else
+                {
+                    additional_input_in =
+                        std::vector<unsigned char>(features.seed_len_, 0);
+                }
+            }
+
             Data32 num_u64 =
                 static_cast<Data32>((requested_number_of_bytes + 7) / 8);
 
@@ -454,8 +460,8 @@ namespace rngongpu
                     counterWithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBoxCihangir<<<
                         features.num_blocks_, features.thread_per_block_>>>(
                         features.d_nonce_, features.round_keys_, features.t0_,
-                        features.t4_, range, features.SAES_d_, threadCount, pointer,
-                        num_u64);
+                        features.t4_, range, features.SAES_d_, threadCount,
+                        pointer, num_u64);
                     RNGONGPU_CUDA_CHECK(cudaGetLastError());
                     break;
                 case SecurityLevel::AES192:
@@ -856,8 +862,12 @@ namespace rngongpu
 
         void print_params(std::ostream& out = std::cout);
 
-        void reseed(const std::vector<unsigned char>& additional_input =
-                        std::vector<unsigned char>());
+        const std::vector<unsigned char>& get_key() const { return this->key_; }
+
+        const std::vector<unsigned char>& get_nonce() const
+        {
+            return this->nonce_;
+        }
 
         void reseed(const std::vector<unsigned char>& entropy_input,
                     const std::vector<unsigned char>& additional_input);
@@ -865,151 +875,147 @@ namespace rngongpu
         template <typename T>
         __host__ void
         uniform_random_number(T* pointer, const Data64 size,
-                              std::vector<unsigned char> additional_input = {});
+                              std::vector<unsigned char> additional_input);
 
         template <typename T>
         __host__ void
         uniform_random_number(T* pointer, const Data64 size,
                               std::vector<unsigned char>& entropy_input,
-                              std::vector<unsigned char> additional_input = {});
+                              std::vector<unsigned char> additional_input);
 
         template <typename T>
         __host__ void modular_uniform_random_number(
             T* pointer, Modulus<T> modulus, const Data64 size,
-            std::vector<unsigned char> additional_input = {});
+            std::vector<unsigned char> additional_input);
 
         template <typename T>
         __host__ void modular_uniform_random_number(
             T* pointer, Modulus<T> modulus, const Data64 size,
             std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input = {});
+            std::vector<unsigned char> additional_input);
 
         template <typename T>
         __host__ void modular_uniform_random_number(
             T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
-            int repeat_count, std::vector<unsigned char> additional_input = {});
+            int repeat_count, std::vector<unsigned char> additional_input);
 
         template <typename T>
         __host__ void modular_uniform_random_number(
             T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
             int repeat_count, std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input = {});
+            std::vector<unsigned char> additional_input);
 
         template <typename T>
         __host__ void modular_uniform_random_number(
             T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
             int* mod_index, int repeat_count,
-            std::vector<unsigned char> additional_input = {});
+            std::vector<unsigned char> additional_input);
 
         template <typename T>
         __host__ void modular_uniform_random_number(
             T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
             int* mod_index, int repeat_count,
             std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input = {});
+            std::vector<unsigned char> additional_input);
 
         // --
 
         template <typename T>
         __host__ void
         normal_random_number(T std_dev, T* pointer, const Data64 size,
-                             std::vector<unsigned char> additional_input = {});
+                             std::vector<unsigned char> additional_input);
 
         template <typename T>
         __host__ void
         normal_random_number(T std_dev, T* pointer, const Data64 size,
                              std::vector<unsigned char>& entropy_input,
-                             std::vector<unsigned char> additional_input = {});
+                             std::vector<unsigned char> additional_input);
 
         template <typename T, typename U>
         __host__ void modular_normal_random_number(
             U std_dev, T* pointer, Modulus<T> modulus, const Data64 size,
-            std::vector<unsigned char> additional_input = {});
+            std::vector<unsigned char> additional_input);
 
         template <typename T, typename U>
         __host__ void modular_normal_random_number(
             U std_dev, T* pointer, Modulus<T> modulus, const Data64 size,
             std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input = {});
+            std::vector<unsigned char> additional_input);
 
         template <typename T, typename U>
         __host__ void modular_normal_random_number(
             U std_dev, T* pointer, Modulus<T>* modulus, Data64 log_size,
             int mod_count, int repeat_count,
-            std::vector<unsigned char> additional_input = {});
+            std::vector<unsigned char> additional_input);
 
         template <typename T, typename U>
         __host__ void modular_normal_random_number(
             U std_dev, T* pointer, Modulus<T>* modulus, Data64 log_size,
             int mod_count, int repeat_count,
             std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input = {});
+            std::vector<unsigned char> additional_input);
 
         template <typename T, typename U>
         __host__ void modular_normal_random_number(
             U std_dev, T* pointer, Modulus<T>* modulus, Data64 log_size,
             int mod_count, int* mod_index, int repeat_count,
-            std::vector<unsigned char> additional_input = {});
+            std::vector<unsigned char> additional_input);
 
         template <typename T, typename U>
         __host__ void modular_normal_random_number(
             U std_dev, T* pointer, Modulus<T>* modulus, Data64 log_size,
             int mod_count, int* mod_index, int repeat_count,
             std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input = {});
+            std::vector<unsigned char> additional_input);
 
         // --
 
         template <typename T>
         __host__ void
         ternary_random_number(T* pointer, const Data64 size,
-                              std::vector<unsigned char> additional_input = {});
+                              std::vector<unsigned char> additional_input);
 
         template <typename T>
         __host__ void
         ternary_random_number(T* pointer, const Data64 size,
                               std::vector<unsigned char>& entropy_input,
-                              std::vector<unsigned char> additional_input = {});
+                              std::vector<unsigned char> additional_input);
 
         template <typename T>
         __host__ void modular_ternary_random_number(
             T* pointer, Modulus<T> modulus, const Data64 size,
-            std::vector<unsigned char> additional_input = {});
+            std::vector<unsigned char> additional_input);
 
         template <typename T>
         __host__ void modular_ternary_random_number(
             T* pointer, Modulus<T> modulus, const Data64 size,
             std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input = {});
+            std::vector<unsigned char> additional_input);
 
         template <typename T>
         __host__ void modular_ternary_random_number(
             T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
-            int repeat_count, std::vector<unsigned char> additional_input = {});
+            int repeat_count, std::vector<unsigned char> additional_input);
 
         template <typename T>
         __host__ void modular_ternary_random_number(
             T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
             int repeat_count, std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input = {});
+            std::vector<unsigned char> additional_input);
 
         template <typename T>
         __host__ void modular_ternary_random_number(
             T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
             int* mod_index, int repeat_count,
-            std::vector<unsigned char> additional_input = {});
+            std::vector<unsigned char> additional_input);
 
         template <typename T>
         __host__ void modular_ternary_random_number(
             T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
             int* mod_index, int repeat_count,
             std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input = {});
+            std::vector<unsigned char> additional_input);
     };
-
-    ////////////////////////////////////<
-    ////////////////////////////////////<
-    ////////////////////////////////////<
 
 } // namespace rngongpu
 

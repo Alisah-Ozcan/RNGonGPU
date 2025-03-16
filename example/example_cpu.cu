@@ -47,14 +47,15 @@ void case1()
     drbg.print_params();
 
     std::cout << "Random Bytes (First Call): " << std::endl;
+    std::vector<unsigned char> additional_input = {};
     std::vector<unsigned char> randomBytes1 =
-        drbg.generate_bytes(32); // 64 // page 211
+        drbg.generate_bytes(32, additional_input); // 64 // page 211
     drbg.print_params();
     print_hex(randomBytes1);
 
     std::cout << "Random Bytes (Second Call): " << std::endl;
     std::vector<unsigned char> randomBytes2 =
-        drbg.generate_bytes(32); // 64 // page 211
+        drbg.generate_bytes(32, additional_input); // 64 // page 211
     drbg.print_params();
     print_hex(randomBytes2);
 }
@@ -116,12 +117,15 @@ void case2()
     drbg.print_params();
 
     std::cout << "Random Bytes (First Call): " << std::endl;
-    std::vector<unsigned char> randomBytes1 = drbg.generate_bytes(64);
+    std::vector<unsigned char> additional_input = {};
+    std::vector<unsigned char> randomBytes1 =
+        drbg.generate_bytes(64, additional_input);
     drbg.print_params();
     print_hex(randomBytes1);
 
     std::cout << "Random Bytes (Second Call): " << std::endl;
-    std::vector<unsigned char> randomBytes2 = drbg.generate_bytes(64);
+    std::vector<unsigned char> randomBytes2 =
+        drbg.generate_bytes(64, additional_input);
     drbg.print_params();
     print_hex(randomBytes2);
 }

@@ -3,18 +3,28 @@
 # SPDX-License-Identifier: Apache-2.0
 # Developer: Alişah Özcan
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BINARY_LOCATION}/example)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BINARY_LOCATION}/test)
+
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  URL https://github.com/google/googletest/archive/release-1.12.1.zip
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(googletest)
 
 set(EXECUTABLES
-    example example.cu
-    example_cpu example_cpu.cu
-    cuda_rng_example cuda_rng_example.cu
+    test test.cu
 )
+
+add_definitions(-DPROJECT_DIR="${CMAKE_SOURCE_DIR}")
 
 function(add_example exe source)
     add_executable(${exe} ${source})
-    target_link_libraries(${exe} PRIVATE rngongpu CUDA::cudart)
+    target_link_libraries(${exe} PRIVATE rngongpu CUDA::cudart gtest_main)
     set_target_properties(${exe} PROPERTIES
+    #target_compile_definitions(${exe} PRIVATE PROJECT_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_options(${exe} PRIVATE -DPROJECT_DIR="${CMAKE_SOURCE_DIR}")
         CUDA_SEPARABLE_COMPILATION OFF
         POSITION_INDEPENDENT_CODE ON
         CUDA_RUNTIME_LIBRARY Static

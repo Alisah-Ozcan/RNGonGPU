@@ -30,29 +30,17 @@ namespace rngongpu
         for (unsigned char byte : this->key_)
         {
             out << std::hex << std::setw(2) << std::setfill('0')
-                      << static_cast<int>(byte);
+                << static_cast<int>(byte);
         }
         out << std::endl;
-        
+
         out << "\tV\t= ";
         for (unsigned char byte : this->nonce_)
         {
             out << std::hex << std::setw(2) << std::setfill('0')
-                      << static_cast<int>(byte);
+                << static_cast<int>(byte);
         }
         out << std::dec << std::endl << std::endl;
-    }
-
-    void
-    RNG<Mode::AES>::reseed(const std::vector<unsigned char>& additional_input)
-    {
-        std::vector<unsigned char> generated_entropy_input(this->key_len_);
-        if (1 != RAND_bytes(generated_entropy_input.data(),
-                            generated_entropy_input.size()))
-            throw std::runtime_error("RAND_bytes failed during reseed");
-
-        RNGTraits<Mode::AES>::reseed(*this, generated_entropy_input,
-                                     additional_input);
     }
 
     void
