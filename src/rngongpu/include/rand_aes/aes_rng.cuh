@@ -295,8 +295,11 @@ namespace rngongpu
             std::vector<unsigned char> len_bytes =
                 uint32_to_bytes(requested_bit);
 
+            S.reserve(S.size() + len_bytes.size() + input_string.size());
             S.insert(S.end(), len_bytes.begin(), len_bytes.end());
-            S.insert(S.end(), input_string.begin(), input_string.end());
+            if (!input_string.empty()) {
+                S.insert(S.end(), input_string.begin(), input_string.end());
+            }
 
             S.push_back(0x80);
             while (S.size() % features.out_len_ != 0)
