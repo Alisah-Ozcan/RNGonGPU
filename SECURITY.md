@@ -7,7 +7,7 @@ RNGonGPU is a GPU-based random number generation library for secure applications
 We value the contributions of the community in maintaining and improving the security of our library. If you discover any vulnerabilities, bugs, or any security-related issues, please report them responsibly by following the instructions below:
 
 - **Email:** alisah@sabanciuniv.edu
-- **Issue Tracker:** [GitHub Issues](https://github.com/RNGonGPU/issues)
+- **Issue Tracker:** [GitHub Issues](https://github.com/Alisah-Ozcan/RNGonGPU/issues)
 
 When submitting your report, please include:
 - A detailed description of the issue.
