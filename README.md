@@ -56,6 +56,7 @@ To build and install RNGonGPU, follow the steps below. This includes configuring
 ```bash
 $ cmake -S . -D CMAKE_CUDA_ARCHITECTURES=89 -B build
 $ cmake --build ./build/
+$ sudo cmake --install build
 ```
 
 ## Examples
@@ -87,7 +88,7 @@ To run benchmarks:
 $ cmake -S . -D RNGonGPU_BUILD_BENCHMARKS=ON -D CMAKE_CUDA_ARCHITECTURES=89 -B build
 $ cmake --build ./build/
 
-$ ./build/bin/benchmark/benchmark
+$ ./build/bin/benchmark/benchmark --disable-blocking-kernel
 ```
 
 ## Using RNGonGPU in a downstream CMake project
@@ -100,7 +101,7 @@ find_package(CUDAToolkit REQUIRED)
 # ...
 find_package(RNGonGPU)
 # ...
-target_link_libraries(<your-target> (PRIVATE|PUBLIC|INTERFACE) RNGonGPU::RNGonGPU CUDA::cudart)
+target_link_libraries(<your-target> (PRIVATE|PUBLIC|INTERFACE) RNGonGPU::rngongpu CUDA::cudart)
 # ...
 set_target_properties(<your-target> PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 # ...
