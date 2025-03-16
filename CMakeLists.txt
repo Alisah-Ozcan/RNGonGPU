@@ -49,3 +49,13 @@ message(STATUS "RNGonGPU_BUILD_TESTS: ${RNGonGPU_BUILD_TESTS}")
 if(RNGonGPU_BUILD_TESTS)
     add_subdirectory(test)
 endif()
+
+##############
+# Benchmarks #
+##############
+
+option(RNGonGPU_BUILD_BENCHMARKS "Build RNGonGPU Benchmarks" OFF)
+message(STATUS "RNGonGPU_BUILD_BENCHMARKS: ${RNGonGPU_BUILD_BENCHMARKS}")
+if(RNGonGPU_BUILD_BENCHMARKS)
+    add_subdirectory(benchmark)
+endif()

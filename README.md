@@ -66,8 +66,28 @@ To run examples:
 $ cmake -S . -D RNGonGPU_BUILD_EXAMPLES=ON -D CMAKE_CUDA_ARCHITECTURES=89 -B build
 $ cmake --build ./build/
 
-$ ./build/bin/examples/<...>
-$ Example: ./build/bin/examples/example
+$ ./build/bin/example/<...>
+$ Example: ./build/bin/example/example
+```
+
+## [Tests](/test/README.md)
+
+To run tests:
+```bash
+$ cmake -S . -D RNGonGPU_BUILD_TESTS=ON -D CMAKE_CUDA_ARCHITECTURES=89 -B build
+$ cmake --build ./build/
+
+$ ./build/bin/test/test
+```
+
+## Benchmarks
+
+To run benchmarks:
+```bash
+$ cmake -S . -D RNGonGPU_BUILD_BENCHMARKS=ON -D CMAKE_CUDA_ARCHITECTURES=89 -B build
+$ cmake --build ./build/
+
+$ ./build/bin/benchmark/benchmark
 ```
 
 ## Using RNGonGPU in a downstream CMake project
