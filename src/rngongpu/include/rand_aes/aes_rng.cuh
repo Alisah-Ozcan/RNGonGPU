@@ -468,7 +468,8 @@ namespace rngongpu
         gen_random_bytes(ModeFeature<Mode::AES>& features, Data64* pointer,
                          Data64 requested_number_of_bytes,
                          const std::vector<unsigned char>& entropy_input,
-                         const std::vector<unsigned char>& additional_input)
+                         const std::vector<unsigned char>& additional_input,
+                         cudaStream_t stream)
         {
             std::vector<unsigned char> additional_input_in;
             if (features.is_prediction_resistance_enabled_ ||
@@ -509,24 +510,27 @@ namespace rngongpu
             {
                 case SecurityLevel::AES128:
                     counterWithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBoxCihangir<<<
-                        features.num_blocks_, features.thread_per_block_>>>(
-                        features.d_nonce_, features.round_keys_, features.t0_,
-                        features.t4_, range, features.SAES_d_, threadCount,
-                        pointer, num_u64);
+                        features.num_blocks_, features.thread_per_block_, 0,
+                        stream>>>(features.d_nonce_, features.round_keys_,
+                                  features.t0_, features.t4_, range,
+                                  features.SAES_d_, threadCount, pointer,
+                                  num_u64);
                     RNGONGPU_CUDA_CHECK(cudaGetLastError());
                     break;
                 case SecurityLevel::AES192:
                     counter192WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox<<<
-                        features.num_blocks_, features.thread_per_block_>>>(
-                        features.d_nonce_, features.round_keys_, features.t0_,
-                        features.t4_, range, threadCount, pointer, num_u64);
+                        features.num_blocks_, features.thread_per_block_, 0,
+                        stream>>>(features.d_nonce_, features.round_keys_,
+                                  features.t0_, features.t4_, range,
+                                  threadCount, pointer, num_u64);
                     RNGONGPU_CUDA_CHECK(cudaGetLastError());
                     break;
                 case SecurityLevel::AES256:
                     counter256WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox<<<
-                        features.num_blocks_, features.thread_per_block_>>>(
-                        features.d_nonce_, features.round_keys_, features.t0_,
-                        features.t4_, range, threadCount, pointer, num_u64);
+                        features.num_blocks_, features.thread_per_block_, 0,
+                        stream>>>(features.d_nonce_, features.round_keys_,
+                                  features.t0_, features.t4_, range,
+                                  threadCount, pointer, num_u64);
                     RNGONGPU_CUDA_CHECK(cudaGetLastError());
                     break;
                 default:
@@ -647,29 +651,29 @@ namespace rngongpu
         static __host__ void generate_uniform_random_number(
             ModeFeature<Mode::AES>& features, T* pointer, Data32 size,
             std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input)
+            std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
             Data64* pointer64 = reinterpret_cast<Data64*>(pointer);
             Data64 total_byte_count = static_cast<Data64>(size) * sizeof(T);
             gen_random_bytes(features, pointer64, total_byte_count,
-                             entropy_input, additional_input);
+                             entropy_input, additional_input, stream);
         }
 
         template <typename T>
         static __host__ void generate_modular_uniform_random_number(
             ModeFeature<Mode::AES>& features, T* pointer, Modulus<T> modulus,
             Data32 size, std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input)
+            std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
             Data64* pointer64 = reinterpret_cast<Data64*>(pointer);
             Data64 total_byte_count = static_cast<Data64>(size) * sizeof(T);
             gen_random_bytes(features, pointer64, total_byte_count,
-                             entropy_input, additional_input);
+                             entropy_input, additional_input, stream);
 
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
             mod_reduce_kernel<<<features.num_blocks_,
-                                features.thread_per_block_>>>(
+                                features.thread_per_block_, 0, stream>>>(
                 pointer, modulus, size, total_thread);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
         }
@@ -679,19 +683,19 @@ namespace rngongpu
             ModeFeature<Mode::AES>& features, T* pointer, Modulus<T>* modulus,
             Data32 log_size, int mod_count, int repeat_count,
             std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input)
+            std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
             Data64* pointer64 = reinterpret_cast<Data64*>(pointer);
             int size = 1 << log_size;
             Data64 total_byte_count =
                 static_cast<Data64>(size * repeat_count) * sizeof(T);
             gen_random_bytes(features, pointer64, total_byte_count,
-                             entropy_input, additional_input);
+                             entropy_input, additional_input, stream);
 
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
             mod_reduce_kernel<<<features.num_blocks_,
-                                features.thread_per_block_>>>(
+                                features.thread_per_block_, 0, stream>>>(
                 pointer, modulus, log_size, mod_count, repeat_count,
                 total_thread);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
@@ -702,19 +706,19 @@ namespace rngongpu
             ModeFeature<Mode::AES>& features, T* pointer, Modulus<T>* modulus,
             Data32 log_size, int mod_count, int* mod_index, int repeat_count,
             std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input)
+            std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
             Data64* pointer64 = reinterpret_cast<Data64*>(pointer);
             int size = 1 << log_size;
             Data64 total_byte_count =
                 static_cast<Data64>(size * repeat_count) * sizeof(T);
             gen_random_bytes(features, pointer64, total_byte_count,
-                             entropy_input, additional_input);
+                             entropy_input, additional_input, stream);
 
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
             mod_reduce_kernel<<<features.num_blocks_,
-                                features.thread_per_block_>>>(
+                                features.thread_per_block_, 0, stream>>>(
                 pointer, modulus, log_size, mod_count, mod_index, repeat_count,
                 total_thread);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
@@ -726,19 +730,19 @@ namespace rngongpu
         static __host__ void generate_normal_random_number(
             ModeFeature<Mode::AES>& features, T std_dev, T* pointer,
             Data32 size, std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input)
+            std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
             Data64* pointer64;
             Data64 total_byte_count = static_cast<Data64>(size) * sizeof(T);
-            cudaMalloc(&pointer64, total_byte_count);
+            cudaMallocAsync(&pointer64, total_byte_count, stream);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
             gen_random_bytes(features, pointer64, total_byte_count,
-                             entropy_input, additional_input);
+                             entropy_input, additional_input, stream);
 
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
             box_muller_kernel<<<features.num_blocks_,
-                                features.thread_per_block_>>>(
+                                features.thread_per_block_, 0, stream>>>(
                 std_dev, pointer64, pointer, size, total_thread);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
             RNGONGPU_CUDA_CHECK(cudaFree(pointer64));
@@ -749,17 +753,17 @@ namespace rngongpu
             ModeFeature<Mode::AES>& features, U std_dev, T* pointer,
             Modulus<T> modulus, Data32 size,
             std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input)
+            std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
             Data64* pointer64 = reinterpret_cast<Data64*>(pointer);
             Data64 total_byte_count = static_cast<Data64>(size) * sizeof(T);
             gen_random_bytes(features, pointer64, total_byte_count,
-                             entropy_input, additional_input);
+                             entropy_input, additional_input, stream);
 
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
             box_muller_kernel<<<features.num_blocks_,
-                                features.thread_per_block_>>>(
+                                features.thread_per_block_, 0, stream>>>(
                 std_dev, pointer, modulus, size, total_thread);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
         }
@@ -769,22 +773,22 @@ namespace rngongpu
             ModeFeature<Mode::AES>& features, U std_dev, T* pointer,
             Modulus<T>* modulus, Data32 log_size, int mod_count,
             int repeat_count, std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input)
+            std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
             Data64* pointer64;
             int size = 1 << log_size;
             Data64 total_byte_count =
                 static_cast<Data64>(size * repeat_count) * sizeof(T);
-            cudaMalloc(&pointer64, total_byte_count);
+            cudaMallocAsync(&pointer64, total_byte_count, stream);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
             gen_random_bytes(features, pointer64, total_byte_count,
-                             entropy_input, additional_input);
+                             entropy_input, additional_input, stream);
 
             T* pointer_T = reinterpret_cast<T*>(pointer64);
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
             box_muller_kernel<<<features.num_blocks_,
-                                features.thread_per_block_>>>(
+                                features.thread_per_block_, 0, stream>>>(
                 std_dev, pointer_T, pointer, modulus, log_size, mod_count,
                 repeat_count, total_thread);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
@@ -796,22 +800,22 @@ namespace rngongpu
             ModeFeature<Mode::AES>& features, U std_dev, T* pointer,
             Modulus<T>* modulus, Data32 log_size, int mod_count, int* mod_index,
             int repeat_count, std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input)
+            std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
             Data64* pointer64;
             int size = 1 << log_size;
             Data64 total_byte_count =
                 static_cast<Data64>(size * repeat_count) * sizeof(T);
-            cudaMalloc(&pointer64, total_byte_count);
+            cudaMallocAsync(&pointer64, total_byte_count, stream);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
             gen_random_bytes(features, pointer64, total_byte_count,
-                             entropy_input, additional_input);
+                             entropy_input, additional_input, stream);
 
             T* pointer_T = reinterpret_cast<T*>(pointer64);
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
             box_muller_kernel<<<features.num_blocks_,
-                                features.thread_per_block_>>>(
+                                features.thread_per_block_, 0, stream>>>(
                 std_dev, pointer_T, pointer, modulus, log_size, mod_count,
                 mod_index, repeat_count, total_thread);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
@@ -824,18 +828,18 @@ namespace rngongpu
         static __host__ void generate_ternary_random_number(
             ModeFeature<Mode::AES>& features, T* pointer, Data32 size,
             std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input)
+            std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
             Data64* pointer64 = reinterpret_cast<Data64*>(pointer);
             Data64 total_byte_count = static_cast<Data64>(size) * sizeof(T);
             gen_random_bytes(features, pointer64, total_byte_count,
-                             entropy_input, additional_input);
+                             entropy_input, additional_input, stream);
 
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
             ternary_number_kernel<<<features.num_blocks_,
-                                    features.thread_per_block_>>>(pointer, size,
-                                                                  total_thread);
+                                    features.thread_per_block_, 0, stream>>>(
+                pointer, size, total_thread);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
         }
 
@@ -843,17 +847,17 @@ namespace rngongpu
         static __host__ void generate_modular_ternary_random_number(
             ModeFeature<Mode::AES>& features, T* pointer, Modulus<T> modulus,
             Data32 size, std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input)
+            std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
             Data64* pointer64 = reinterpret_cast<Data64*>(pointer);
             Data64 total_byte_count = static_cast<Data64>(size) * sizeof(T);
             gen_random_bytes(features, pointer64, total_byte_count,
-                             entropy_input, additional_input);
+                             entropy_input, additional_input, stream);
 
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
             ternary_number_kernel<<<features.num_blocks_,
-                                    features.thread_per_block_>>>(
+                                    features.thread_per_block_, 0, stream>>>(
                 pointer, modulus, size, total_thread);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
         }
@@ -863,22 +867,22 @@ namespace rngongpu
             ModeFeature<Mode::AES>& features, T* pointer, Modulus<T>* modulus,
             Data32 log_size, int mod_count, int repeat_count,
             std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input)
+            std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
             Data64* pointer64;
             int size = 1 << log_size;
             Data64 total_byte_count =
                 static_cast<Data64>(size * repeat_count) * sizeof(T);
-            cudaMalloc(&pointer64, total_byte_count);
+            cudaMallocAsync(&pointer64, total_byte_count, stream);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
             gen_random_bytes(features, pointer64, total_byte_count,
-                             entropy_input, additional_input);
+                             entropy_input, additional_input, stream);
 
             T* pointer_T = reinterpret_cast<T*>(pointer64);
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
             ternary_number_kernel<<<features.num_blocks_,
-                                    features.thread_per_block_>>>(
+                                    features.thread_per_block_, 0, stream>>>(
                 pointer_T, pointer, modulus, log_size, mod_count, repeat_count,
                 total_thread);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
@@ -890,22 +894,22 @@ namespace rngongpu
             ModeFeature<Mode::AES>& features, T* pointer, Modulus<T>* modulus,
             Data32 log_size, int mod_count, int* mod_index, int repeat_count,
             std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input)
+            std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
             Data64* pointer64;
             int size = 1 << log_size;
             Data64 total_byte_count =
                 static_cast<Data64>(size * repeat_count) * sizeof(T);
-            cudaMalloc(&pointer64, total_byte_count);
+            cudaMallocAsync(&pointer64, total_byte_count, stream);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
             gen_random_bytes(features, pointer64, total_byte_count,
-                             entropy_input, additional_input);
+                             entropy_input, additional_input, stream);
 
             T* pointer_T = reinterpret_cast<T*>(pointer64);
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
             ternary_number_kernel<<<features.num_blocks_,
-                                    features.thread_per_block_>>>(
+                                    features.thread_per_block_, 0, stream>>>(
                 pointer_T, pointer, modulus, log_size, mod_count, mod_index,
                 repeat_count, total_thread);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
@@ -959,7 +963,8 @@ namespace rngongpu
         template <typename T>
         __host__ void
         uniform_random_number(T* pointer, const Data64 size,
-                              std::vector<unsigned char> additional_input);
+                              std::vector<unsigned char> additional_input,
+                              cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates uniform random numbers.
@@ -983,7 +988,8 @@ namespace rngongpu
         __host__ void
         uniform_random_number(T* pointer, const Data64 size,
                               std::vector<unsigned char>& entropy_input,
-                              std::vector<unsigned char> additional_input);
+                              std::vector<unsigned char> additional_input,
+                              cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates modular uniform random numbers according to given
@@ -1010,7 +1016,8 @@ namespace rngongpu
         template <typename T>
         __host__ void modular_uniform_random_number(
             T* pointer, Modulus<T> modulus, const Data64 size,
-            std::vector<unsigned char> additional_input);
+            std::vector<unsigned char> additional_input,
+            cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates modular uniform random numbers according to given
@@ -1037,7 +1044,8 @@ namespace rngongpu
         __host__ void modular_uniform_random_number(
             T* pointer, Modulus<T> modulus, const Data64 size,
             std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input);
+            std::vector<unsigned char> additional_input,
+            cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates modular uniform random numbers according to given
@@ -1091,7 +1099,8 @@ namespace rngongpu
         template <typename T>
         __host__ void modular_uniform_random_number(
             T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
-            int repeat_count, std::vector<unsigned char> additional_input);
+            int repeat_count, std::vector<unsigned char> additional_input,
+            cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates modular uniform random numbers according to given
@@ -1145,7 +1154,8 @@ namespace rngongpu
         __host__ void modular_uniform_random_number(
             T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
             int repeat_count, std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input);
+            std::vector<unsigned char> additional_input,
+            cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates modular uniform random numbers according to given
@@ -1204,7 +1214,8 @@ namespace rngongpu
         __host__ void modular_uniform_random_number(
             T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
             int* mod_index, int repeat_count,
-            std::vector<unsigned char> additional_input);
+            std::vector<unsigned char> additional_input,
+            cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates modular uniform random numbers according to given
@@ -1263,7 +1274,8 @@ namespace rngongpu
             T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
             int* mod_index, int repeat_count,
             std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input);
+            std::vector<unsigned char> additional_input,
+            cudaStream_t stream = cudaStreamDefault);
 
         // --
 
@@ -1290,7 +1302,8 @@ namespace rngongpu
         template <typename T>
         __host__ void
         normal_random_number(T std_dev, T* pointer, const Data64 size,
-                             std::vector<unsigned char> additional_input);
+                             std::vector<unsigned char> additional_input,
+                             cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates Gaussian-distributed random numbers.
@@ -1315,7 +1328,8 @@ namespace rngongpu
         __host__ void
         normal_random_number(T std_dev, T* pointer, const Data64 size,
                              std::vector<unsigned char>& entropy_input,
-                             std::vector<unsigned char> additional_input);
+                             std::vector<unsigned char> additional_input,
+                             cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates Gaussian-distributed random numbers in given modulo
@@ -1344,7 +1358,8 @@ namespace rngongpu
         template <typename T, typename U>
         __host__ void modular_normal_random_number(
             U std_dev, T* pointer, Modulus<T> modulus, const Data64 size,
-            std::vector<unsigned char> additional_input);
+            std::vector<unsigned char> additional_input,
+            cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates Gaussian-distributed random numbers in given modulo
@@ -1373,7 +1388,8 @@ namespace rngongpu
         __host__ void modular_normal_random_number(
             U std_dev, T* pointer, Modulus<T> modulus, const Data64 size,
             std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input);
+            std::vector<unsigned char> additional_input,
+            cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates Gaussian-distributed random numbers in given modulo
@@ -1430,7 +1446,8 @@ namespace rngongpu
         __host__ void modular_normal_random_number(
             U std_dev, T* pointer, Modulus<T>* modulus, Data64 log_size,
             int mod_count, int repeat_count,
-            std::vector<unsigned char> additional_input);
+            std::vector<unsigned char> additional_input,
+            cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates Gaussian-distributed random numbers in given modulo
@@ -1486,7 +1503,8 @@ namespace rngongpu
             U std_dev, T* pointer, Modulus<T>* modulus, Data64 log_size,
             int mod_count, int repeat_count,
             std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input);
+            std::vector<unsigned char> additional_input,
+            cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates Gaussian-distributed random numbers in given modulo
@@ -1547,7 +1565,8 @@ namespace rngongpu
         __host__ void modular_normal_random_number(
             U std_dev, T* pointer, Modulus<T>* modulus, Data64 log_size,
             int mod_count, int* mod_index, int repeat_count,
-            std::vector<unsigned char> additional_input);
+            std::vector<unsigned char> additional_input,
+            cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates Gaussian-distributed random numbers in given modulo
@@ -1611,7 +1630,8 @@ namespace rngongpu
             U std_dev, T* pointer, Modulus<T>* modulus, Data64 log_size,
             int mod_count, int* mod_index, int repeat_count,
             std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input);
+            std::vector<unsigned char> additional_input,
+            cudaStream_t stream = cudaStreamDefault);
 
         // --
 
@@ -1638,7 +1658,8 @@ namespace rngongpu
         template <typename T>
         __host__ void
         ternary_random_number(T* pointer, const Data64 size,
-                              std::vector<unsigned char> additional_input);
+                              std::vector<unsigned char> additional_input,
+                              cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates Ternary-distributed random numbers. (-1,0,1)
@@ -1663,7 +1684,8 @@ namespace rngongpu
         __host__ void
         ternary_random_number(T* pointer, const Data64 size,
                               std::vector<unsigned char>& entropy_input,
-                              std::vector<unsigned char> additional_input);
+                              std::vector<unsigned char> additional_input,
+                              cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates modular Ternary-distributed random numbers according
@@ -1691,7 +1713,8 @@ namespace rngongpu
         template <typename T>
         __host__ void modular_ternary_random_number(
             T* pointer, Modulus<T> modulus, const Data64 size,
-            std::vector<unsigned char> additional_input);
+            std::vector<unsigned char> additional_input,
+            cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates modular Ternary-distributed random numbers according
@@ -1719,7 +1742,8 @@ namespace rngongpu
         __host__ void modular_ternary_random_number(
             T* pointer, Modulus<T> modulus, const Data64 size,
             std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input);
+            std::vector<unsigned char> additional_input,
+            cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates Ternary-distributed random numbers in given modulo
@@ -1774,7 +1798,8 @@ namespace rngongpu
         template <typename T>
         __host__ void modular_ternary_random_number(
             T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
-            int repeat_count, std::vector<unsigned char> additional_input);
+            int repeat_count, std::vector<unsigned char> additional_input,
+            cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates Ternary-distributed random numbers in given modulo
@@ -1829,7 +1854,8 @@ namespace rngongpu
         __host__ void modular_ternary_random_number(
             T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
             int repeat_count, std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input);
+            std::vector<unsigned char> additional_input,
+            cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates Ternary-distributed random numbers in given modulo
@@ -1889,7 +1915,8 @@ namespace rngongpu
         __host__ void modular_ternary_random_number(
             T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
             int* mod_index, int repeat_count,
-            std::vector<unsigned char> additional_input);
+            std::vector<unsigned char> additional_input,
+            cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates Ternary-distributed random numbers in given modulo
@@ -1949,7 +1976,8 @@ namespace rngongpu
             T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
             int* mod_index, int repeat_count,
             std::vector<unsigned char>& entropy_input,
-            std::vector<unsigned char> additional_input);
+            std::vector<unsigned char> additional_input,
+            cudaStream_t stream = cudaStreamDefault);
     };
 
 } // namespace rngongpu

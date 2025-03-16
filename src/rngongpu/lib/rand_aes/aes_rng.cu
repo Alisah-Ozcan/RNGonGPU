@@ -53,7 +53,7 @@ namespace rngongpu
     template <typename T>
     __host__ void RNG<Mode::AES>::uniform_random_number(
         T* pointer, const Data64 size,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if (size == 0)
             return;
@@ -65,14 +65,14 @@ namespace rngongpu
             throw std::runtime_error("RAND_bytes failed during reseed");
 
         RNGTraits<Mode::AES>::generate_uniform_random_number(
-            *this, pointer, size, generated_entropy, additional_input);
+            *this, pointer, size, generated_entropy, additional_input, stream);
     }
 
     template <typename T>
     __host__ void RNG<Mode::AES>::uniform_random_number(
         T* pointer, const Data64 size,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if (size == 0)
             return;
@@ -80,13 +80,13 @@ namespace rngongpu
         CheckCudaPointer(pointer);
 
         RNGTraits<Mode::AES>::generate_uniform_random_number(
-            *this, pointer, size, entropy_input, additional_input);
+            *this, pointer, size, entropy_input, additional_input, stream);
     }
 
     template <typename T>
     __host__ void RNG<Mode::AES>::modular_uniform_random_number(
         T* pointer, Modulus<T> modulus, const Data64 size,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if (size == 0)
             return;
@@ -98,14 +98,15 @@ namespace rngongpu
             throw std::runtime_error("RAND_bytes failed during reseed");
 
         RNGTraits<Mode::AES>::generate_modular_uniform_random_number(
-            *this, pointer, modulus, size, generated_entropy, additional_input);
+            *this, pointer, modulus, size, generated_entropy, additional_input,
+            stream);
     }
 
     template <typename T>
     __host__ void RNG<Mode::AES>::modular_uniform_random_number(
         T* pointer, Modulus<T> modulus, const Data64 size,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if (size == 0)
             return;
@@ -113,13 +114,15 @@ namespace rngongpu
         CheckCudaPointer(pointer);
 
         RNGTraits<Mode::AES>::generate_modular_uniform_random_number(
-            *this, pointer, modulus, size, entropy_input, additional_input);
+            *this, pointer, modulus, size, entropy_input, additional_input,
+            stream);
     }
 
     template <typename T>
     __host__ void RNG<Mode::AES>::modular_uniform_random_number(
         T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
-        int repeat_count, std::vector<unsigned char> additional_input)
+        int repeat_count, std::vector<unsigned char> additional_input,
+        cudaStream_t stream)
     {
         if ((log_size == 0) || (repeat_count == 0))
             return;
@@ -133,14 +136,14 @@ namespace rngongpu
 
         RNGTraits<Mode::AES>::generate_modular_uniform_random_number(
             *this, pointer, modulus, log_size, mod_count, repeat_count,
-            generated_entropy, additional_input);
+            generated_entropy, additional_input, stream);
     }
 
     template <typename T>
     __host__ void RNG<Mode::AES>::modular_uniform_random_number(
         T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
         int repeat_count, std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if ((log_size == 0) || (repeat_count == 0))
             return;
@@ -150,14 +153,14 @@ namespace rngongpu
 
         RNGTraits<Mode::AES>::generate_modular_uniform_random_number(
             *this, pointer, modulus, log_size, mod_count, repeat_count,
-            entropy_input, additional_input);
+            entropy_input, additional_input, stream);
     }
 
     template <typename T>
     __host__ void RNG<Mode::AES>::modular_uniform_random_number(
         T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
         int* mod_index, int repeat_count,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if ((log_size == 0) || (repeat_count == 0))
             return;
@@ -172,7 +175,7 @@ namespace rngongpu
 
         RNGTraits<Mode::AES>::generate_modular_uniform_random_number(
             *this, pointer, modulus, log_size, mod_count, mod_index,
-            repeat_count, generated_entropy, additional_input);
+            repeat_count, generated_entropy, additional_input, stream);
     }
 
     template <typename T>
@@ -180,7 +183,7 @@ namespace rngongpu
         T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
         int* mod_index, int repeat_count,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if ((log_size == 0) || (repeat_count == 0))
             return;
@@ -191,7 +194,7 @@ namespace rngongpu
 
         RNGTraits<Mode::AES>::generate_modular_uniform_random_number(
             *this, pointer, modulus, log_size, mod_count, mod_index,
-            repeat_count, entropy_input, additional_input);
+            repeat_count, entropy_input, additional_input, stream);
     }
 
     // --
@@ -199,7 +202,7 @@ namespace rngongpu
     template <typename T>
     __host__ void RNG<Mode::AES>::normal_random_number(
         T std_dev, T* pointer, const Data64 size,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if (size == 0)
             return;
@@ -211,14 +214,15 @@ namespace rngongpu
             throw std::runtime_error("RAND_bytes failed during reseed");
 
         RNGTraits<Mode::AES>::generate_normal_random_number(
-            *this, std_dev, pointer, size, generated_entropy, additional_input);
+            *this, std_dev, pointer, size, generated_entropy, additional_input,
+            stream);
     }
 
     template <typename T>
     __host__ void RNG<Mode::AES>::normal_random_number(
         T std_dev, T* pointer, const Data64 size,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if (size == 0)
             return;
@@ -226,13 +230,14 @@ namespace rngongpu
         CheckCudaPointer(pointer);
 
         RNGTraits<Mode::AES>::generate_normal_random_number(
-            *this, std_dev, pointer, size, entropy_input, additional_input);
+            *this, std_dev, pointer, size, entropy_input, additional_input,
+            stream);
     }
 
     template <typename T, typename U>
     __host__ void RNG<Mode::AES>::modular_normal_random_number(
         U std_dev, T* pointer, Modulus<T> modulus, const Data64 size,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if (size == 0)
             return;
@@ -245,14 +250,14 @@ namespace rngongpu
 
         RNGTraits<Mode::AES>::generate_modular_normal_random_number(
             *this, std_dev, pointer, modulus, size, generated_entropy,
-            additional_input);
+            additional_input, stream);
     }
 
     template <typename T, typename U>
     __host__ void RNG<Mode::AES>::modular_normal_random_number(
         U std_dev, T* pointer, Modulus<T> modulus, const Data64 size,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if (size == 0)
             return;
@@ -261,14 +266,14 @@ namespace rngongpu
 
         RNGTraits<Mode::AES>::generate_modular_normal_random_number(
             *this, std_dev, pointer, modulus, size, entropy_input,
-            additional_input);
+            additional_input, stream);
     }
 
     template <typename T, typename U>
     __host__ void RNG<Mode::AES>::modular_normal_random_number(
         U std_dev, T* pointer, Modulus<T>* modulus, Data64 log_size,
         int mod_count, int repeat_count,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if ((log_size == 0) || (repeat_count == 0))
             return;
@@ -282,7 +287,7 @@ namespace rngongpu
 
         RNGTraits<Mode::AES>::generate_modular_normal_random_number(
             *this, std_dev, pointer, modulus, log_size, mod_count, repeat_count,
-            generated_entropy, additional_input);
+            generated_entropy, additional_input, stream);
     }
 
     template <typename T, typename U>
@@ -290,7 +295,7 @@ namespace rngongpu
         U std_dev, T* pointer, Modulus<T>* modulus, Data64 log_size,
         int mod_count, int repeat_count,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if ((log_size == 0) || (repeat_count == 0))
             return;
@@ -300,14 +305,14 @@ namespace rngongpu
 
         RNGTraits<Mode::AES>::generate_modular_normal_random_number(
             *this, std_dev, pointer, modulus, log_size, mod_count, repeat_count,
-            entropy_input, additional_input);
+            entropy_input, additional_input, stream);
     }
 
     template <typename T, typename U>
     __host__ void RNG<Mode::AES>::modular_normal_random_number(
         U std_dev, T* pointer, Modulus<T>* modulus, Data64 log_size,
         int mod_count, int* mod_index, int repeat_count,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if ((log_size == 0) || (repeat_count == 0))
             return;
@@ -322,7 +327,7 @@ namespace rngongpu
 
         RNGTraits<Mode::AES>::generate_modular_normal_random_number(
             *this, std_dev, pointer, modulus, log_size, mod_count, mod_index,
-            repeat_count, generated_entropy, additional_input);
+            repeat_count, generated_entropy, additional_input, stream);
     }
 
     template <typename T, typename U>
@@ -330,7 +335,7 @@ namespace rngongpu
         U std_dev, T* pointer, Modulus<T>* modulus, Data64 log_size,
         int mod_count, int* mod_index, int repeat_count,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if ((log_size == 0) || (repeat_count == 0))
             return;
@@ -341,7 +346,7 @@ namespace rngongpu
 
         RNGTraits<Mode::AES>::generate_modular_normal_random_number(
             *this, std_dev, pointer, modulus, log_size, mod_count, mod_index,
-            repeat_count, entropy_input, additional_input);
+            repeat_count, entropy_input, additional_input, stream);
     }
 
     // --
@@ -349,7 +354,7 @@ namespace rngongpu
     template <typename T>
     __host__ void RNG<Mode::AES>::ternary_random_number(
         T* pointer, const Data64 size,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if (size == 0)
             return;
@@ -361,14 +366,14 @@ namespace rngongpu
             throw std::runtime_error("RAND_bytes failed during reseed");
 
         RNGTraits<Mode::AES>::generate_ternary_random_number(
-            *this, pointer, size, generated_entropy, additional_input);
+            *this, pointer, size, generated_entropy, additional_input, stream);
     }
 
     template <typename T>
     __host__ void RNG<Mode::AES>::ternary_random_number(
         T* pointer, const Data64 size,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if (size == 0)
             return;
@@ -376,13 +381,13 @@ namespace rngongpu
         CheckCudaPointer(pointer);
 
         RNGTraits<Mode::AES>::generate_ternary_random_number(
-            *this, pointer, size, entropy_input, additional_input);
+            *this, pointer, size, entropy_input, additional_input, stream);
     }
 
     template <typename T>
     __host__ void RNG<Mode::AES>::modular_ternary_random_number(
         T* pointer, Modulus<T> modulus, const Data64 size,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if (size == 0)
             return;
@@ -394,14 +399,15 @@ namespace rngongpu
             throw std::runtime_error("RAND_bytes failed during reseed");
 
         RNGTraits<Mode::AES>::generate_modular_ternary_random_number(
-            *this, pointer, modulus, size, generated_entropy, additional_input);
+            *this, pointer, modulus, size, generated_entropy, additional_input,
+            stream);
     }
 
     template <typename T>
     __host__ void RNG<Mode::AES>::modular_ternary_random_number(
         T* pointer, Modulus<T> modulus, const Data64 size,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if (size == 0)
             return;
@@ -409,13 +415,15 @@ namespace rngongpu
         CheckCudaPointer(pointer);
 
         RNGTraits<Mode::AES>::generate_modular_ternary_random_number(
-            *this, pointer, modulus, size, entropy_input, additional_input);
+            *this, pointer, modulus, size, entropy_input, additional_input,
+            stream);
     }
 
     template <typename T>
     __host__ void RNG<Mode::AES>::modular_ternary_random_number(
         T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
-        int repeat_count, std::vector<unsigned char> additional_input)
+        int repeat_count, std::vector<unsigned char> additional_input,
+        cudaStream_t stream)
     {
         if ((log_size == 0) || (repeat_count == 0))
             return;
@@ -429,14 +437,14 @@ namespace rngongpu
 
         RNGTraits<Mode::AES>::generate_modular_ternary_random_number(
             *this, pointer, modulus, log_size, mod_count, repeat_count,
-            generated_entropy, additional_input);
+            generated_entropy, additional_input, stream);
     }
 
     template <typename T>
     __host__ void RNG<Mode::AES>::modular_ternary_random_number(
         T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
         int repeat_count, std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if ((log_size == 0) || (repeat_count == 0))
             return;
@@ -446,14 +454,14 @@ namespace rngongpu
 
         RNGTraits<Mode::AES>::generate_modular_ternary_random_number(
             *this, pointer, modulus, log_size, mod_count, repeat_count,
-            entropy_input, additional_input);
+            entropy_input, additional_input, stream);
     }
 
     template <typename T>
     __host__ void RNG<Mode::AES>::modular_ternary_random_number(
         T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
         int* mod_index, int repeat_count,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if ((log_size == 0) || (repeat_count == 0))
             return;
@@ -468,7 +476,7 @@ namespace rngongpu
 
         RNGTraits<Mode::AES>::generate_modular_ternary_random_number(
             *this, pointer, modulus, log_size, mod_count, mod_index,
-            repeat_count, generated_entropy, additional_input);
+            repeat_count, generated_entropy, additional_input, stream);
     }
 
     template <typename T>
@@ -476,7 +484,7 @@ namespace rngongpu
         T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
         int* mod_index, int repeat_count,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input)
+        std::vector<unsigned char> additional_input, cudaStream_t stream)
     {
         if ((log_size == 0) || (repeat_count == 0))
             return;
@@ -487,313 +495,317 @@ namespace rngongpu
 
         RNGTraits<Mode::AES>::generate_modular_ternary_random_number(
             *this, pointer, modulus, log_size, mod_count, mod_index,
-            repeat_count, entropy_input, additional_input);
+            repeat_count, entropy_input, additional_input, stream);
     }
 
     template __host__ void RNG<Mode::AES>::uniform_random_number<Data32>(
         Data32* pointer, const Data64 size,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void RNG<Mode::AES>::uniform_random_number<Data64>(
         Data64* pointer, const Data64 size,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void RNG<Mode::AES>::uniform_random_number<Data32>(
         Data32* pointer, const Data64 size,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void RNG<Mode::AES>::uniform_random_number<Data64>(
         Data64* pointer, const Data64 size,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
 
     template __host__ void
     RNG<Mode::AES>::modular_uniform_random_number<Data32>(
         Data32* pointer, Modulus<Data32> modulus, const Data64 size,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_uniform_random_number<Data64>(
         Data64* pointer, Modulus<Data64> modulus, const Data64 size,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_uniform_random_number<Data32>(
         Data32* pointer, Modulus<Data32> modulus, const Data64 size,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_uniform_random_number<Data64>(
         Data64* pointer, Modulus<Data64> modulus, const Data64 size,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
 
     template __host__ void
     RNG<Mode::AES>::modular_uniform_random_number<Data32>(
         Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
         int mod_count, int repeat_count,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_uniform_random_number<Data64>(
         Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
         int mod_count, int repeat_count,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_uniform_random_number<Data32>(
         Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
         int mod_count, int repeat_count,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_uniform_random_number<Data64>(
         Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
         int mod_count, int repeat_count,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
 
     template __host__ void
     RNG<Mode::AES>::modular_uniform_random_number<Data32>(
         Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
         int mod_count, int* mod_index, int repeat_count,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_uniform_random_number<Data64>(
         Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
         int mod_count, int* mod_index, int repeat_count,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_uniform_random_number<Data32>(
         Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
         int mod_count, int* mod_index, int repeat_count,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_uniform_random_number<Data64>(
         Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
         int mod_count, int* mod_index, int repeat_count,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
 
     // --
 
     template __host__ void RNG<Mode::AES>::normal_random_number<f32>(
         f32 std_dev, f32* pointer, const Data64 size,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void RNG<Mode::AES>::normal_random_number<f64>(
         f64 std_dev, f64* pointer, const Data64 size,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void RNG<Mode::AES>::normal_random_number<f32>(
         f32 std_dev, f32* pointer, const Data64 size,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void RNG<Mode::AES>::normal_random_number<f64>(
         f64 std_dev, f64* pointer, const Data64 size,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
 
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data32, f32>(
         f32 std_dev, Data32* pointer, Modulus<Data32> modulus,
-        const Data64 size, std::vector<unsigned char> additional_input);
+        const Data64 size, std::vector<unsigned char> additional_input,
+        cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data32, f64>(
         f64 std_dev, Data32* pointer, Modulus<Data32> modulus,
-        const Data64 size, std::vector<unsigned char> additional_input);
+        const Data64 size, std::vector<unsigned char> additional_input,
+        cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data64, f32>(
         f32 std_dev, Data64* pointer, Modulus<Data64> modulus,
-        const Data64 size, std::vector<unsigned char> additional_input);
+        const Data64 size, std::vector<unsigned char> additional_input,
+        cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data64, f64>(
         f64 std_dev, Data64* pointer, Modulus<Data64> modulus,
-        const Data64 size, std::vector<unsigned char> additional_input);
+        const Data64 size, std::vector<unsigned char> additional_input,
+        cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data32, f32>(
         f32 std_dev, Data32* pointer, Modulus<Data32> modulus,
         const Data64 size, std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data32, f64>(
         f64 std_dev, Data32* pointer, Modulus<Data32> modulus,
         const Data64 size, std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data64, f32>(
         f32 std_dev, Data64* pointer, Modulus<Data64> modulus,
         const Data64 size, std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data64, f64>(
         f64 std_dev, Data64* pointer, Modulus<Data64> modulus,
         const Data64 size, std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
 
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data32, f32>(
         f32 std_dev, Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
         int mod_count, int repeat_count,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data32, f64>(
         f64 std_dev, Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
         int mod_count, int repeat_count,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data64, f32>(
         f32 std_dev, Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
         int mod_count, int repeat_count,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data64, f64>(
         f64 std_dev, Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
         int mod_count, int repeat_count,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data32, f32>(
         f32 std_dev, Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
         int mod_count, int repeat_count,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data32, f64>(
         f64 std_dev, Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
         int mod_count, int repeat_count,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data64, f32>(
         f32 std_dev, Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
         int mod_count, int repeat_count,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data64, f64>(
         f64 std_dev, Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
         int mod_count, int repeat_count,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
 
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data32, f32>(
         f32 std_dev, Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
         int mod_count, int* mod_index, int repeat_count,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data32, f64>(
         f64 std_dev, Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
         int mod_count, int* mod_index, int repeat_count,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data64, f32>(
         f32 std_dev, Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
         int mod_count, int* mod_index, int repeat_count,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data64, f64>(
         f64 std_dev, Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
         int mod_count, int* mod_index, int repeat_count,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data32, f32>(
         f32 std_dev, Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
         int mod_count, int* mod_index, int repeat_count,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data32, f64>(
         f64 std_dev, Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
         int mod_count, int* mod_index, int repeat_count,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data64, f32>(
         f32 std_dev, Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
         int mod_count, int* mod_index, int repeat_count,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_normal_random_number<Data64, f64>(
         f64 std_dev, Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
         int mod_count, int* mod_index, int repeat_count,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
 
     // --
 
     template __host__ void RNG<Mode::AES>::ternary_random_number<Data32>(
         Data32* pointer, const Data64 size,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void RNG<Mode::AES>::ternary_random_number<Data64>(
         Data64* pointer, const Data64 size,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void RNG<Mode::AES>::ternary_random_number<Data32>(
         Data32* pointer, const Data64 size,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void RNG<Mode::AES>::ternary_random_number<Data64>(
         Data64* pointer, const Data64 size,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
 
     template __host__ void
     RNG<Mode::AES>::modular_ternary_random_number<Data32>(
         Data32* pointer, Modulus<Data32> modulus, const Data64 size,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_ternary_random_number<Data64>(
         Data64* pointer, Modulus<Data64> modulus, const Data64 size,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_ternary_random_number<Data32>(
         Data32* pointer, Modulus<Data32> modulus, const Data64 size,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_ternary_random_number<Data64>(
         Data64* pointer, Modulus<Data64> modulus, const Data64 size,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
 
     template __host__ void
     RNG<Mode::AES>::modular_ternary_random_number<Data32>(
         Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
         int mod_count, int repeat_count,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_ternary_random_number<Data64>(
         Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
         int mod_count, int repeat_count,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_ternary_random_number<Data32>(
         Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
         int mod_count, int repeat_count,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_ternary_random_number<Data64>(
         Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
         int mod_count, int repeat_count,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
 
     template __host__ void
     RNG<Mode::AES>::modular_ternary_random_number<Data32>(
         Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
         int mod_count, int* mod_index, int repeat_count,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_ternary_random_number<Data64>(
         Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
         int mod_count, int* mod_index, int repeat_count,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_ternary_random_number<Data32>(
         Data32* pointer, Modulus<Data32>* modulus, Data64 log_size,
         int mod_count, int* mod_index, int repeat_count,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
     template __host__ void
     RNG<Mode::AES>::modular_ternary_random_number<Data64>(
         Data64* pointer, Modulus<Data64>* modulus, Data64 log_size,
         int mod_count, int* mod_index, int repeat_count,
         std::vector<unsigned char>& entropy_input,
-        std::vector<unsigned char> additional_input);
+        std::vector<unsigned char> additional_input, cudaStream_t stream);
 
 } // namespace rngongpu

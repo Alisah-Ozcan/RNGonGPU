@@ -68,10 +68,11 @@ namespace rngongpu
         template <typename T>
         static __host__ void
         generate_uniform_random_number(ModeFeature<Mode::CUDA, State>& features,
-                                       T* pointer, Data64 size)
+                                       T* pointer, Data64 size,
+                                       cudaStream_t stream)
         {
             uniform_random_number_generation_kernel<<<
-                features.num_blocks_, features.thread_per_block_>>>(
+                features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, pointer, size, features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
         }
@@ -79,10 +80,10 @@ namespace rngongpu
         template <typename T>
         static __host__ void generate_modular_uniform_random_number(
             ModeFeature<Mode::CUDA, State>& features, T* pointer,
-            Modulus<T> modulus, Data64 size)
+            Modulus<T> modulus, Data64 size, cudaStream_t stream)
         {
             uniform_random_number_generation_kernel<<<
-                features.num_blocks_, features.thread_per_block_>>>(
+                features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, pointer, modulus, size,
                 features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
@@ -92,10 +93,10 @@ namespace rngongpu
         static __host__ void generate_modular_uniform_random_number(
             ModeFeature<Mode::CUDA, State>& features, T* pointer,
             Modulus<T>* modulus, Data64 log_size, int mod_count,
-            int repeat_count)
+            int repeat_count, cudaStream_t stream)
         {
             uniform_random_number_generation_kernel<<<
-                features.num_blocks_, features.thread_per_block_>>>(
+                features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, pointer, modulus, log_size, mod_count,
                 repeat_count, features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
@@ -105,10 +106,10 @@ namespace rngongpu
         static __host__ void generate_modular_uniform_random_number(
             ModeFeature<Mode::CUDA, State>& features, T* pointer,
             Modulus<T>* modulus, Data64 log_size, int mod_count, int* mod_index,
-            int repeat_count)
+            int repeat_count, cudaStream_t stream)
         {
             uniform_random_number_generation_kernel<<<
-                features.num_blocks_, features.thread_per_block_>>>(
+                features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, pointer, modulus, log_size, mod_count,
                 mod_index, repeat_count, features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
@@ -119,10 +120,11 @@ namespace rngongpu
         template <typename T>
         static __host__ void
         generate_normal_random_number(ModeFeature<Mode::CUDA, State>& features,
-                                      T std_dev, T* pointer, Data64 size)
+                                      T std_dev, T* pointer, Data64 size,
+                                      cudaStream_t stream)
         {
             normal_random_number_generation_kernel<<<
-                features.num_blocks_, features.thread_per_block_>>>(
+                features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, std_dev, pointer, size,
                 features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
@@ -131,10 +133,10 @@ namespace rngongpu
         template <typename T, typename U>
         static __host__ void generate_modular_normal_random_number(
             ModeFeature<Mode::CUDA, State>& features, U std_dev, T* pointer,
-            Modulus<T> modulus, Data64 size)
+            Modulus<T> modulus, Data64 size, cudaStream_t stream)
         {
             normal_random_number_generation_kernel<<<
-                features.num_blocks_, features.thread_per_block_>>>(
+                features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, std_dev, pointer, modulus, size,
                 features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
@@ -144,10 +146,10 @@ namespace rngongpu
         static __host__ void generate_modular_normal_random_number(
             ModeFeature<Mode::CUDA, State>& features, U std_dev, T* pointer,
             Modulus<T>* modulus, Data64 log_size, int mod_count,
-            int repeat_count)
+            int repeat_count, cudaStream_t stream)
         {
             normal_random_number_generation_kernel<<<
-                features.num_blocks_, features.thread_per_block_>>>(
+                features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, std_dev, pointer, modulus, log_size,
                 mod_count, repeat_count, features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
@@ -157,10 +159,10 @@ namespace rngongpu
         static __host__ void generate_modular_normal_random_number(
             ModeFeature<Mode::CUDA, State>& features, U std_dev, T* pointer,
             Modulus<T>* modulus, Data64 log_size, int mod_count, int* mod_index,
-            int repeat_count)
+            int repeat_count, cudaStream_t stream)
         {
             normal_random_number_generation_kernel<<<
-                features.num_blocks_, features.thread_per_block_>>>(
+                features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, std_dev, pointer, modulus, log_size,
                 mod_count, mod_index, repeat_count, features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
@@ -171,10 +173,11 @@ namespace rngongpu
         template <typename T>
         static __host__ void
         generate_ternary_random_number(ModeFeature<Mode::CUDA, State>& features,
-                                       T* pointer, Data64 size)
+                                       T* pointer, Data64 size,
+                                       cudaStream_t stream)
         {
             ternary_random_number_generation_kernel<<<
-                features.num_blocks_, features.thread_per_block_>>>(
+                features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, pointer, size, features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
         }
@@ -182,10 +185,10 @@ namespace rngongpu
         template <typename T>
         static __host__ void generate_modular_ternary_random_number(
             ModeFeature<Mode::CUDA, State>& features, T* pointer,
-            Modulus<T> modulus, Data64 size)
+            Modulus<T> modulus, Data64 size, cudaStream_t stream)
         {
             ternary_random_number_generation_kernel<<<
-                features.num_blocks_, features.thread_per_block_>>>(
+                features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, pointer, modulus, size,
                 features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
@@ -195,10 +198,10 @@ namespace rngongpu
         static __host__ void generate_modular_ternary_random_number(
             ModeFeature<Mode::CUDA, State>& features, T* pointer,
             Modulus<T>* modulus, Data64 log_size, int mod_count,
-            int repeat_count)
+            int repeat_count, cudaStream_t stream)
         {
             ternary_random_number_generation_kernel<<<
-                features.num_blocks_, features.thread_per_block_>>>(
+                features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, pointer, modulus, log_size, mod_count,
                 repeat_count, features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
@@ -208,10 +211,10 @@ namespace rngongpu
         static __host__ void generate_modular_ternary_random_number(
             ModeFeature<Mode::CUDA, State>& features, T* pointer,
             Modulus<T>* modulus, Data64 log_size, int mod_count, int* mod_index,
-            int repeat_count)
+            int repeat_count, cudaStream_t stream)
         {
             ternary_random_number_generation_kernel<<<
-                features.num_blocks_, features.thread_per_block_>>>(
+                features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, pointer, modulus, log_size, mod_count,
                 mod_index, repeat_count, features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
@@ -240,7 +243,9 @@ namespace rngongpu
          * @param size The number of random numbers to generate.
          */
         template <typename T>
-        __host__ void uniform_random_number(T* pointer, const Data64 size);
+        __host__ void
+        uniform_random_number(T* pointer, const Data64 size,
+                              cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates modular uniform random numbers according to given
@@ -259,9 +264,10 @@ namespace rngongpu
          * @param size The number of random numbers to generate.
          */
         template <typename T>
-        __host__ void modular_uniform_random_number(T* pointer,
-                                                    Modulus<T> modulus,
-                                                    const Data64 size);
+        __host__ void
+        modular_uniform_random_number(T* pointer, Modulus<T> modulus,
+                                      const Data64 size,
+                                      cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates modular uniform random numbers according to given
@@ -305,10 +311,9 @@ namespace rngongpu
          * x repeat_count
          */
         template <typename T>
-        __host__ void
-        modular_uniform_random_number(T* pointer, Modulus<T>* modulus,
-                                      Data64 log_size, int mod_count,
-                                      int repeat_count);
+        __host__ void modular_uniform_random_number(
+            T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
+            int repeat_count, cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates modular uniform random numbers according to given
@@ -359,7 +364,8 @@ namespace rngongpu
         __host__ void
         modular_uniform_random_number(T* pointer, Modulus<T>* modulus,
                                       Data64 log_size, int mod_count,
-                                      int* mod_index, int repeat_count);
+                                      int* mod_index, int repeat_count,
+                                      cudaStream_t stream = cudaStreamDefault);
 
         // --
 
@@ -378,8 +384,9 @@ namespace rngongpu
          * @param size The number of random numbers to generate.
          */
         template <typename T>
-        __host__ void normal_random_number(T std_dev, T* pointer,
-                                           const Data64 size);
+        __host__ void
+        normal_random_number(T std_dev, T* pointer, const Data64 size,
+                             cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates Gaussian-distributed random numbers in given modulo
@@ -400,9 +407,10 @@ namespace rngongpu
          * @param size The number of random numbers to generate.
          */
         template <typename T, typename U>
-        __host__ void modular_normal_random_number(U std_dev, T* pointer,
-                                                   Modulus<T> modulus,
-                                                   const Data64 size);
+        __host__ void
+        modular_normal_random_number(U std_dev, T* pointer, Modulus<T> modulus,
+                                     const Data64 size,
+                                     cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates Gaussian-distributed random numbers in given modulo
@@ -453,7 +461,8 @@ namespace rngongpu
         __host__ void
         modular_normal_random_number(U std_dev, T* pointer, Modulus<T>* modulus,
                                      Data64 log_size, int mod_count,
-                                     int repeat_count = 1);
+                                     int repeat_count,
+                                     cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates Gaussian-distributed random numbers in given modulo
@@ -508,7 +517,8 @@ namespace rngongpu
         __host__ void
         modular_normal_random_number(U std_dev, T* pointer, Modulus<T>* modulus,
                                      Data64 log_size, int mod_count,
-                                     int* mod_index, int repeat_count = 1);
+                                     int* mod_index, int repeat_count,
+                                     cudaStream_t stream = cudaStreamDefault);
 
         // --
 
@@ -527,7 +537,9 @@ namespace rngongpu
          * @param size The number of random numbers to generate.
          */
         template <typename T>
-        __host__ void ternary_random_number(T* pointer, const Data64 size);
+        __host__ void
+        ternary_random_number(T* pointer, const Data64 size,
+                              cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates modular Ternary-distributed random numbers according
@@ -547,9 +559,10 @@ namespace rngongpu
          * @param size The number of random numbers to generate.
          */
         template <typename T>
-        __host__ void modular_ternary_random_number(T* pointer,
-                                                    Modulus<T> modulus,
-                                                    const Data64 size);
+        __host__ void
+        modular_ternary_random_number(T* pointer, Modulus<T> modulus,
+                                      const Data64 size,
+                                      cudaStream_t stream = cudaStreamDefault);
         /**
          * @brief Generates Ternary-distributed random numbers in given modulo
          * order.(-1,0,1)
@@ -595,10 +608,9 @@ namespace rngongpu
          * x repeat_count
          */
         template <typename T>
-        __host__ void
-        modular_ternary_random_number(T* pointer, Modulus<T>* modulus,
-                                      Data64 log_size, int mod_count,
-                                      int repeat_count = 1);
+        __host__ void modular_ternary_random_number(
+            T* pointer, Modulus<T>* modulus, Data64 log_size, int mod_count,
+            int repeat_count, cudaStream_t stream = cudaStreamDefault);
         /**
          * @brief Generates Ternary-distributed random numbers in given modulo
          * order. (-1,0,1)
@@ -651,7 +663,8 @@ namespace rngongpu
         __host__ void
         modular_ternary_random_number(T* pointer, Modulus<T>* modulus,
                                       Data64 log_size, int mod_count,
-                                      int* mod_index, int repeat_count = 1);
+                                      int* mod_index, int repeat_count,
+                                      cudaStream_t stream = cudaStreamDefault);
     };
 
 } // namespace rngongpu

@@ -68,7 +68,7 @@ $ cmake -S . -D RNGonGPU_BUILD_EXAMPLES=ON -D CMAKE_CUDA_ARCHITECTURES=89 -B bui
 $ cmake --build ./build/
 
 $ ./build/bin/example/<...>
-$ Example: ./build/bin/example/example
+$ Example: ./build/bin/example/aes_drng_example
 ```
 
 ## [Tests](/test/README.md)

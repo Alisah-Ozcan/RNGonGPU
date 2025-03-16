@@ -6,7 +6,7 @@
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BINARY_LOCATION}/example)
 
 set(EXECUTABLES
-    example example.cu
+    aes_drng_example aes_drng_example.cu
     cuda_rng_example cuda_rng_example.cu
 )
 

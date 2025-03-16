@@ -66,12 +66,20 @@ void CTR_DRBG_with_AES_Benchmark_32bit_Data(nvbench::state& state)
 
     state.collect_dram_throughput();
 
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+    state.set_cuda_stream(nvbench::make_cuda_stream_view(stream));
+
     state.exec(
         [&](nvbench::launch& launch)
         {
             std::vector<unsigned char> additional_input = {};
-            drbg.uniform_random_number(d_results, size, additional_input);
+            drbg.uniform_random_number(d_results, size, additional_input,
+                                       stream);
         });
+
+    cudaStreamSynchronize(stream);
+    cudaStreamDestroy(stream);
 }
 
 NVBENCH_BENCH(CTR_DRBG_with_AES_Benchmark_32bit_Data)
@@ -125,12 +133,20 @@ void CTR_DRBG_with_AES_Benchmark_64bit_Data(nvbench::state& state)
 
     state.collect_dram_throughput();
 
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+    state.set_cuda_stream(nvbench::make_cuda_stream_view(stream));
+
     state.exec(
         [&](nvbench::launch& launch)
         {
             std::vector<unsigned char> additional_input = {};
-            drbg.uniform_random_number(d_results, size, additional_input);
+            drbg.uniform_random_number(d_results, size, additional_input,
+                                       stream);
         });
+
+    cudaStreamSynchronize(stream);
+    cudaStreamDestroy(stream);
 }
 
 NVBENCH_BENCH(CTR_DRBG_with_AES_Benchmark_64bit_Data)
@@ -157,8 +173,15 @@ void Curand_Benchmark_32bit_Data(nvbench::state& state)
 
     state.collect_dram_throughput();
 
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+    state.set_cuda_stream(nvbench::make_cuda_stream_view(stream));
+
     state.exec([&](nvbench::launch& launch)
-               { gen.uniform_random_number(d_results, size); });
+               { gen.uniform_random_number(d_results, size, stream); });
+
+    cudaStreamSynchronize(stream);
+    cudaStreamDestroy(stream);
 }
 
 NVBENCH_BENCH(Curand_Benchmark_32bit_Data)
@@ -182,8 +205,15 @@ void Curand_Benchmark_64bit_Data(nvbench::state& state)
 
     state.collect_dram_throughput();
 
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+    state.set_cuda_stream(nvbench::make_cuda_stream_view(stream));
+
     state.exec([&](nvbench::launch& launch)
-               { gen.uniform_random_number(d_results, size); });
+               { gen.uniform_random_number(d_results, size, stream); });
+
+    cudaStreamSynchronize(stream);
+    cudaStreamDestroy(stream);
 }
 
 NVBENCH_BENCH(Curand_Benchmark_64bit_Data)
