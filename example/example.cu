@@ -3,10 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "aes_rng.cuh"
-#include "cuda_rng.cuh"
-#include "aes.cuh"
-#include "base_rng.cuh"
-#include <iostream>
 
 using namespace std;
 

@@ -226,43 +226,284 @@ namespace rngongpu
 
         ~RNG();
 
+        /**
+         * @brief Generates uniform random numbers.
+         *
+         * This function generates uniformly distributed random numbers.
+         * The numbers are written to the memory pointed to by @p pointer, which
+         * must reside on the device or in unified memory. If the pointer does
+         * not reference device or unified memory, an error is thrown.
+         *
+         * @tparam T The data type of the random numbers. (Data32 or Data64)
+         * @param pointer Pointer to the memory for storing random numbers
+         * (device or unified memory required).
+         * @param size The number of random numbers to generate.
+         */
         template <typename T>
         __host__ void uniform_random_number(T* pointer, const Data64 size);
 
+        /**
+         * @brief Generates modular uniform random numbers according to given
+         * modulo.
+         *
+         * This function produces uniform random numbers that are reduced modulo
+         * a given modulus. The numbers are written to the memory pointed to by
+         * @p pointer, which must reside on the GPU or in unified memory. If the
+         * pointer does not reference GPU or unified memory, an error is thrown.
+         *
+         * @tparam T The data type of the random numbers. (Data32 or Data64)
+         * @param pointer Pointer to the memory for storing random numbers
+         * (device or unified memory required).
+         * @param modulus The modulus used to reduce the generated random
+         * numbers.
+         * @param size The number of random numbers to generate.
+         */
         template <typename T>
         __host__ void modular_uniform_random_number(T* pointer,
                                                     Modulus<T> modulus,
                                                     const Data64 size);
 
+        /**
+         * @brief Generates modular uniform random numbers according to given
+         * modulo order.
+         *
+         * This function produces uniform random numbers that are reduced modulo
+         * a given modulo order. The numbers are written to the memory pointed
+         * to by @p pointer, which must reside on the GPU or in unified memory.
+         * If the pointer does not reference GPU or unified memory, an error is
+         * thrown.
+         *
+         * @tparam T The data type of the random numbers. (Data32 or Data64)
+         * @param pointer Pointer to the memory for storing random numbers
+         * (device or unified memory required).
+         * @param modulus The modulus used to reduce the generated random
+         * numbers (device or unified memory required).
+         * @param log_size The log domain number of random numbers to generate.
+         * (log_size should be power of 2)
+         * @param mod_count The mod count indicates how many different moduli
+         * are used.
+         *
+         * @example
+         * example1: each array size = 2^log_size, mod_count = 3, repeat_count =
+         * 1
+         *   - modulus order: [  q0 ,   q1 ,   q2 ,   q3 ]
+         *
+         *   - array order  : [array0, array1, array2]
+         *
+         *   - output array : [array0 % q0, array1 % q1, array2 % q2]
+         *
+         * example2: each array size = 2^log_size, mod_count = 2, repeat_count =
+         * 2
+         *   - modulus order: [  q0 ,   q1 ,   q2 ,   q3 ]
+         *
+         *   - array order  : [array0, array1, array2, array3]
+         *
+         *   - output array : [array0 % q0, array1 % q1, array2 % q0, array3 %
+         * q1]
+         *
+         * @note Total generated random number count = (2^log_size) x mod_count
+         * x repeat_count
+         */
         template <typename T>
         __host__ void
         modular_uniform_random_number(T* pointer, Modulus<T>* modulus,
                                       Data64 log_size, int mod_count,
-                                      int repeat_count = 1);
+                                      int repeat_count);
 
+        /**
+         * @brief Generates modular uniform random numbers according to given
+         * modulo order.
+         *
+         * This function produces uniform random numbers that are reduced modulo
+         * a given modulo order. The numbers are written to the memory pointed
+         * to by @p pointer, which must reside on the GPU or in unified memory.
+         * If the pointer does not reference GPU or unified memory, an error is
+         * thrown.
+         *
+         * @tparam T The data type of the random numbers. (Data32 or Data64)
+         * @param pointer Pointer to the memory for storing random numbers
+         * (device or unified memory required).
+         * @param modulus The modulus used to reduce the generated random
+         * numbers (device or unified memory required).
+         * @param log_size The log domain number of random numbers to generate.
+         * (log_size should be power of 2)
+         * @param mod_count The mod count indicates how many different moduli
+         * are used.
+         * @param mod_index The mod index indicates which modules are used
+         * (device or unified memory required).
+         *
+         * @example
+         * example1: each array size = 2^log_size, mod_count = 2, repeat_count =
+         * 1
+         *   - modulus order: [  q0 ,   q1 ,   q2 ,   q3 ]
+         *   - mod_index    : [  0   ,    2  ]
+         *
+         *   - array order  : [array0, array1]
+         *
+         *   - output array : [array0 % q0, array1 % q2]
+         *
+         * example2: each array size = 2^log_size, mod_count = 2, repeat_count =
+         * 2
+         *   - modulus order: [  q0 ,   q1 ,   q2 ,   q3 ]
+         *   - mod_index    : [  0   ,    3  ]
+         *
+         *   - array order  : [array0, array1, array2, array3]
+         *
+         *   - output array : [array0 % q0, array1 % q3, array2 % q0, array3 %
+         * q3]
+         *
+         * @note Total generated random number count = (2^log_size) x mod_count
+         * x repeat_count
+         */
         template <typename T>
         __host__ void
         modular_uniform_random_number(T* pointer, Modulus<T>* modulus,
                                       Data64 log_size, int mod_count,
-                                      int* mod_index, int repeat_count = 1);
+                                      int* mod_index, int repeat_count);
 
         // --
 
+        /**
+         * @brief Generates Gaussian-distributed random numbers.
+         *
+         * This function generates Gaussian-distributed random numbers.
+         * The numbers are written to the memory pointed to by @p pointer, which
+         * must reside on the device or in unified memory. If the pointer does
+         * not reference device or unified memory, an error is thrown.
+         *
+         * @tparam T The data type of the random numbers. (f32 or f64)
+         * @param std_dev Standart deviation.
+         * @param pointer Pointer to the memory for storing random numbers
+         * (device or unified memory required).
+         * @param size The number of random numbers to generate.
+         */
         template <typename T>
         __host__ void normal_random_number(T std_dev, T* pointer,
                                            const Data64 size);
 
+        /**
+         * @brief Generates Gaussian-distributed random numbers in given modulo
+         * domain
+         *
+         * This function generates Gaussian-distributed random numbers in given
+         * modulo domain. The numbers are written to the memory pointed to by @p
+         * pointer, which must reside on the GPU or in unified memory. If the
+         * pointer does not reference GPU or unified memory, an error is thrown.
+         *
+         * @tparam T The data type of the random numbers. (Data32 or Data64)
+         * @tparam U The data type of the standart deviation. (f32 or f64)
+         * @param std_dev Standart deviation.
+         * @param pointer Pointer to the memory for storing random numbers
+         * (device or unified memory required).
+         * @param modulus The modulus used to reduce the generated random
+         * numbers.
+         * @param size The number of random numbers to generate.
+         */
         template <typename T, typename U>
         __host__ void modular_normal_random_number(U std_dev, T* pointer,
                                                    Modulus<T> modulus,
                                                    const Data64 size);
 
+        /**
+         * @brief Generates Gaussian-distributed random numbers in given modulo
+         * order.
+         *
+         * This function produces Gaussian-distributed random numbers that are
+         * reduced modulo a given modulo order. The numbers are written to the
+         * memory pointed to by @p pointer, which must reside on the GPU or in
+         * unified memory. If the pointer does not reference GPU or unified
+         * memory, an error is thrown.
+         *
+         * @tparam T The data type of the random numbers. (Data32 or Data64)
+         * @tparam U The data type of the standart deviation. (f32 or f64)
+         * @param std_dev Standart deviation.
+         * @param pointer Pointer to the memory for storing random numbers
+         * (device or unified memory required).
+         * @param modulus The modulus used to reduce the generated random
+         * numbers (device or unified memory required).
+         * @param log_size The log domain number of random numbers to generate.
+         * (log_size should be power of 2)
+         * @param mod_count The mod count indicates how many different moduli
+         * are used.
+         * @param repeat_count The repeat count indicates how many times the
+         * modulus order is repeated.
+         *
+         * @example
+         * example1: each array size = 2^log_size, mod_count = 3, repeat_count =
+         * 1
+         *   - modulus order: [  q0 ,   q1 ,   q2 ]
+         *
+         *   - array order  : [array0] since repeat_count = 1
+         *
+         *   - output array : [array0 % q0, array0 % q1, array0 % q2]
+         *
+         * example2: each array size = 2^log_size, mod_count = 2, repeat_count =
+         * 2
+         *   - modulus order: [  q0 ,   q1 ,   q2 ]
+         *
+         *   - array order  : [array0, array1] since repeat_count = 2
+         *
+         *   - output array : [array0 % q0, array0 % q1, array1 % q0, array1 %
+         * q1]
+         *
+         * @note Total generated random number count = (2^log_size) x mod_count
+         * x repeat_count
+         */
         template <typename T, typename U>
         __host__ void
         modular_normal_random_number(U std_dev, T* pointer, Modulus<T>* modulus,
                                      Data64 log_size, int mod_count,
                                      int repeat_count = 1);
 
+        /**
+         * @brief Generates Gaussian-distributed random numbers in given modulo
+         * order.
+         *
+         * This function produces Gaussian-distributed random numbers that are
+         * reduced modulo a given modulo order. The numbers are written to the
+         * memory pointed to by @p pointer, which must reside on the GPU or in
+         * unified memory. If the pointer does not reference GPU or unified
+         * memory, an error is thrown.
+         *
+         * @tparam T The data type of the random numbers. (Data32 or Data64)
+         * @tparam U The data type of the standart deviation. (f32 or f64)
+         * @param std_dev Standart deviation.
+         * @param pointer Pointer to the memory for storing random numbers
+         * (device or unified memory required).
+         * @param modulus The modulus used to reduce the generated random
+         * numbers (device or unified memory required).
+         * @param log_size The log domain number of random numbers to generate.
+         * (log_size should be power of 2)
+         * @param mod_count The mod count indicates how many different moduli
+         * are used.
+         * @param mod_index The mod index indicates which modules are used
+         * (device or unified memory required).
+         * @param repeat_count The repeat count indicates how many times the
+         * modulus order is repeated.
+         *
+         * @example
+         * example1: each array size = 2^log_size, mod_count = 2, repeat_count =
+         * 1
+         *   - modulus order: [  q0 ,   q1 ,   q2 ,   q3 ]
+         *   - mod_index    : [  0   ,    2  ]
+         *
+         *   - array order  : [array0] since repeat_count = 1
+         *
+         *   - output array : [array0 % q0, array0 % q2]
+         *
+         * example2: each array size = 2^log_size, mod_count = 2, repeat_count =
+         * 2
+         *   - modulus order: [  q0 ,   q1 ,   q2 ,   q3 ]
+         *   - mod_index    : [  0   ,    3  ]
+         *
+         *   - array order  : [array0, array1] since repeat_count = 2
+         *
+         *   - output array : [array0 % q0, array0 % q3, array1 % q0, array1 %
+         * q3]
+         *
+         * @note Total generated random number count = (2^log_size) x mod_count
+         * x repeat_count
+         */
         template <typename T, typename U>
         __host__ void
         modular_normal_random_number(U std_dev, T* pointer, Modulus<T>* modulus,
@@ -271,20 +512,141 @@ namespace rngongpu
 
         // --
 
+        /**
+         * @brief Generates Ternary-distributed random numbers. (-1,0,1)
+         *
+         * This function generates Ternary-distributed random numbers.
+         * The numbers are written to the memory pointed to by @p pointer, which
+         * must reside on the device or in unified memory. If the pointer does
+         * not reference device or unified memory, an error is thrown.
+         *
+         * @tparam T The data type of the random numbers. (Data32 or Data64)
+         * @param std_dev Standart deviation.
+         * @param pointer Pointer to the memory for storing random numbers
+         * (device or unified memory required).
+         * @param size The number of random numbers to generate.
+         */
         template <typename T>
         __host__ void ternary_random_number(T* pointer, const Data64 size);
 
+        /**
+         * @brief Generates modular Ternary-distributed random numbers according
+         * to given modulo. (-1,0,1)
+         *
+         * This function produces Ternary-distributed random numbers that are
+         * reduced modulo a given modulus. The numbers are written to the memory
+         * pointed to by @p pointer, which must reside on the GPU or in unified
+         * memory. If the pointer does not reference GPU or unified memory, an
+         * error is thrown.
+         *
+         * @tparam T The data type of the random numbers. (Data32 or Data64)
+         * @param pointer Pointer to the memory for storing random numbers
+         * (device or unified memory required).
+         * @param modulus The modulus used to reduce the generated random
+         * numbers.
+         * @param size The number of random numbers to generate.
+         */
         template <typename T>
         __host__ void modular_ternary_random_number(T* pointer,
                                                     Modulus<T> modulus,
                                                     const Data64 size);
-
+        /**
+         * @brief Generates Ternary-distributed random numbers in given modulo
+         * order.(-1,0,1)
+         *
+         * This function produces Ternary-distributed random numbers that are
+         * reduced modulo a given modulo order. The numbers are written to the
+         * memory pointed to by @p pointer, which must reside on the GPU or in
+         * unified memory. If the pointer does not reference GPU or unified
+         * memory, an error is thrown.
+         *
+         * @tparam T The data type of the random numbers. (Data32 or Data64)
+         * @param std_dev Standart deviation.
+         * @param pointer Pointer to the memory for storing random numbers
+         * (device or unified memory required).
+         * @param modulus The modulus used to reduce the generated random
+         * numbers (device or unified memory required).
+         * @param log_size The log domain number of random numbers to generate.
+         * (log_size should be power of 2)
+         * @param mod_count The mod count indicates how many different moduli
+         * are used.
+         * @param repeat_count The repeat count indicates how many times the
+         * modulus order is repeated.
+         *
+         * @example
+         * example1: each array size = 2^log_size, mod_count = 3, repeat_count =
+         * 1
+         *   - modulus order: [  q0 ,   q1 ,   q2 ]
+         *
+         *   - array order  : [array0] since repeat_count = 1
+         *
+         *   - output array : [array0 % q0, array0 % q1, array0 % q2]
+         *
+         * example2: each array size = 2^log_size, mod_count = 2, repeat_count =
+         * 2
+         *   - modulus order: [  q0 ,   q1 ,   q2 ]
+         *
+         *   - array order  : [array0, array1] since repeat_count = 2
+         *
+         *   - output array : [array0 % q0, array0 % q1, array1 % q0, array1 %
+         * q1]
+         *
+         * @note Total generated random number count = (2^log_size) x mod_count
+         * x repeat_count
+         */
         template <typename T>
         __host__ void
         modular_ternary_random_number(T* pointer, Modulus<T>* modulus,
                                       Data64 log_size, int mod_count,
                                       int repeat_count = 1);
-
+        /**
+         * @brief Generates Ternary-distributed random numbers in given modulo
+         * order. (-1,0,1)
+         *
+         * This function produces Ternary-distributed random numbers that are
+         * reduced modulo a given modulo order. The numbers are written to the
+         * memory pointed to by @p pointer, which must reside on the GPU or in
+         * unified memory. If the pointer does not reference GPU or unified
+         * memory, an error is thrown.
+         *
+         * @tparam T The data type of the random numbers. (Data32 or Data64)
+         * @param std_dev Standart deviation.
+         * @param pointer Pointer to the memory for storing random numbers
+         * (device or unified memory required).
+         * @param modulus The modulus used to reduce the generated random
+         * numbers (device or unified memory required).
+         * @param log_size The log domain number of random numbers to generate.
+         * (log_size should be power of 2)
+         * @param mod_count The mod count indicates how many different moduli
+         * are used.
+         * @param mod_index The mod index indicates which modules are used
+         * (device or unified memory required).
+         * @param repeat_count The repeat count indicates how many times the
+         * modulus order is repeated.
+         *
+         * @example
+         * example1: each array size = 2^log_size, mod_count = 2, repeat_count =
+         * 1
+         *   - modulus order: [  q0 ,   q1 ,   q2 ,   q3 ]
+         *   - mod_index    : [  0   ,    2  ]
+         *
+         *   - array order  : [array0] since repeat_count = 1
+         *
+         *   - output array : [array0 % q0, array0 % q2]
+         *
+         * example2: each array size = 2^log_size, mod_count = 2, repeat_count =
+         * 2
+         *   - modulus order: [  q0 ,   q1 ,   q2 ,   q3 ]
+         *   - mod_index    : [  0   ,    3  ]
+         *
+         *   - array order  : [array0, array1] since repeat_count = 2
+         *
+         *   - output array : [array0 % q0, array0 % q3, array1 % q0, array1 %
+         * q3]
+         *
+         * @note Total generated random number count = (2^log_size) x mod_count
+         * x repeat_count
+         */
         template <typename T>
         __host__ void
         modular_ternary_random_number(T* pointer, Modulus<T>* modulus,
