@@ -63,10 +63,6 @@ install(
 
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3")
 
-
-######
-######
-
 option(RNGonGPU_USE_INTERNAL_GPUNTT "Use the internal GPU-NTT provided by RNGonGPU" ON)
 
 if(RNGonGPU_USE_INTERNAL_GPUNTT)
@@ -76,10 +72,6 @@ else()
     set(GPUNTT_TARGET ntt)
 endif()
 
-######
-######
-
-#add_subdirectory(thirdparty)
 add_subdirectory(src)
 
 ############
