@@ -68,8 +68,10 @@ option(RNGonGPU_USE_INTERNAL_GPUNTT "Use the internal GPU-NTT provided by RNGonG
 if(RNGonGPU_USE_INTERNAL_GPUNTT)
     add_subdirectory(thirdparty)
     set(GPUNTT_TARGET ntt)
+    message(STATUS "Internal GPU-NTT used")
 else()
     set(GPUNTT_TARGET ntt)
+    message(STATUS "External GPU-NTT used")
 endif()
 
 add_subdirectory(src)
