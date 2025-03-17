@@ -41,7 +41,7 @@ target_link_libraries(rngongpu PUBLIC
 )
 
 set_target_properties(rngongpu PROPERTIES
-        CUDA_SEPARABLE_COMPILATION OFF
+        CUDA_SEPARABLE_COMPILATION ON
         POSITION_INDEPENDENT_CODE ON
         CMAKE_CUDA_RESOLVE_DEVICE_SYMBOLS OFF
         CUDA_RUNTIME_LIBRARY Static
