@@ -14,6 +14,7 @@
 #include "aes.cuh"
 #include "cuda_rng_kernels.cuh"
 #include "base_rng.cuh"
+#include <mutex>
 
 namespace rngongpu
 {
@@ -25,6 +26,8 @@ namespace rngongpu
         int num_states_;
         State* device_states_;
         Data64 seed_;
+        std::mutex mutex_;
+        cudaEvent_t event_control_;
         friend struct RNGTraits<Mode::CUDA, State>;
     };
 
@@ -71,10 +74,31 @@ namespace rngongpu
                                        T* pointer, Data64 size,
                                        cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             uniform_random_number_generation_kernel<<<
                 features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, pointer, size, features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
         }
 
         template <typename T>
@@ -82,11 +106,32 @@ namespace rngongpu
             ModeFeature<Mode::CUDA, State>& features, T* pointer,
             Modulus<T> modulus, Data64 size, cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             uniform_random_number_generation_kernel<<<
                 features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, pointer, modulus, size,
                 features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
         }
 
         template <typename T>
@@ -95,11 +140,32 @@ namespace rngongpu
             Modulus<T>* modulus, Data64 log_size, int mod_count,
             int repeat_count, cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             uniform_random_number_generation_kernel<<<
                 features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, pointer, modulus, log_size, mod_count,
                 repeat_count, features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
         }
 
         template <typename T>
@@ -108,11 +174,32 @@ namespace rngongpu
             Modulus<T>* modulus, Data64 log_size, int mod_count, int* mod_index,
             int repeat_count, cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             uniform_random_number_generation_kernel<<<
                 features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, pointer, modulus, log_size, mod_count,
                 mod_index, repeat_count, features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
         }
 
         // --
@@ -123,11 +210,32 @@ namespace rngongpu
                                       T std_dev, T* pointer, Data64 size,
                                       cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             normal_random_number_generation_kernel<<<
                 features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, std_dev, pointer, size,
                 features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
         }
 
         template <typename T, typename U>
@@ -135,11 +243,32 @@ namespace rngongpu
             ModeFeature<Mode::CUDA, State>& features, U std_dev, T* pointer,
             Modulus<T> modulus, Data64 size, cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             normal_random_number_generation_kernel<<<
                 features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, std_dev, pointer, modulus, size,
                 features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
         }
 
         template <typename T, typename U>
@@ -148,11 +277,32 @@ namespace rngongpu
             Modulus<T>* modulus, Data64 log_size, int mod_count,
             int repeat_count, cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             normal_random_number_generation_kernel<<<
                 features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, std_dev, pointer, modulus, log_size,
                 mod_count, repeat_count, features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
         }
 
         template <typename T, typename U>
@@ -161,11 +311,32 @@ namespace rngongpu
             Modulus<T>* modulus, Data64 log_size, int mod_count, int* mod_index,
             int repeat_count, cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             normal_random_number_generation_kernel<<<
                 features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, std_dev, pointer, modulus, log_size,
                 mod_count, mod_index, repeat_count, features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
         }
 
         // --
@@ -176,10 +347,31 @@ namespace rngongpu
                                        T* pointer, Data64 size,
                                        cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             ternary_random_number_generation_kernel<<<
                 features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, pointer, size, features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
         }
 
         template <typename T>
@@ -187,11 +379,32 @@ namespace rngongpu
             ModeFeature<Mode::CUDA, State>& features, T* pointer,
             Modulus<T> modulus, Data64 size, cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             ternary_random_number_generation_kernel<<<
                 features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, pointer, modulus, size,
                 features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
         }
 
         template <typename T>
@@ -200,11 +413,32 @@ namespace rngongpu
             Modulus<T>* modulus, Data64 log_size, int mod_count,
             int repeat_count, cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             ternary_random_number_generation_kernel<<<
                 features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, pointer, modulus, log_size, mod_count,
                 repeat_count, features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
         }
 
         template <typename T>
@@ -213,11 +447,32 @@ namespace rngongpu
             Modulus<T>* modulus, Data64 log_size, int mod_count, int* mod_index,
             int repeat_count, cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             ternary_random_number_generation_kernel<<<
                 features.num_blocks_, features.thread_per_block_, 0, stream>>>(
                 features.device_states_, pointer, modulus, log_size, mod_count,
                 mod_index, repeat_count, features.num_states_);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
         }
     };
 

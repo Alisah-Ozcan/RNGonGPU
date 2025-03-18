@@ -47,6 +47,7 @@ namespace rngongpu
     RNG<Mode::AES>::reseed(const std::vector<unsigned char>& entropy_input,
                            const std::vector<unsigned char>& additional_input)
     {
+        std::lock_guard<std::mutex> lock((*this).mutex_);
         RNGTraits<Mode::AES>::reseed(*this, entropy_input, additional_input);
     }
 

@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <random>
 #include <iomanip>
+#include <mutex>
 
 namespace rngongpu
 {
@@ -65,6 +66,9 @@ namespace rngongpu
 
         const int thread_per_block_ = 1024;
         int num_blocks_;
+
+        std::mutex mutex_;
+        cudaEvent_t event_control_;
 
         friend struct RNGTraits<Mode::AES>;
     };
@@ -297,7 +301,8 @@ namespace rngongpu
 
             S.reserve(S.size() + len_bytes.size() + input_string.size());
             S.insert(S.end(), len_bytes.begin(), len_bytes.end());
-            if (!input_string.empty()) {
+            if (!input_string.empty())
+            {
                 S.insert(S.end(), input_string.begin(), input_string.end());
             }
 
@@ -656,10 +661,31 @@ namespace rngongpu
             std::vector<unsigned char>& entropy_input,
             std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             Data64* pointer64 = reinterpret_cast<Data64*>(pointer);
             Data64 total_byte_count = static_cast<Data64>(size) * sizeof(T);
             gen_random_bytes(features, pointer64, total_byte_count,
                              entropy_input, additional_input, stream);
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
         }
 
         template <typename T>
@@ -668,10 +694,31 @@ namespace rngongpu
             Data32 size, std::vector<unsigned char>& entropy_input,
             std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             Data64* pointer64 = reinterpret_cast<Data64*>(pointer);
             Data64 total_byte_count = static_cast<Data64>(size) * sizeof(T);
             gen_random_bytes(features, pointer64, total_byte_count,
                              entropy_input, additional_input, stream);
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
 
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
@@ -688,12 +735,33 @@ namespace rngongpu
             std::vector<unsigned char>& entropy_input,
             std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             Data64* pointer64 = reinterpret_cast<Data64*>(pointer);
             int size = 1 << log_size;
             Data64 total_byte_count =
                 static_cast<Data64>(size * repeat_count) * sizeof(T);
             gen_random_bytes(features, pointer64, total_byte_count,
                              entropy_input, additional_input, stream);
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
 
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
@@ -711,12 +779,33 @@ namespace rngongpu
             std::vector<unsigned char>& entropy_input,
             std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             Data64* pointer64 = reinterpret_cast<Data64*>(pointer);
             int size = 1 << log_size;
             Data64 total_byte_count =
                 static_cast<Data64>(size * repeat_count) * sizeof(T);
             gen_random_bytes(features, pointer64, total_byte_count,
                              entropy_input, additional_input, stream);
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
 
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
@@ -735,12 +824,33 @@ namespace rngongpu
             Data32 size, std::vector<unsigned char>& entropy_input,
             std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             Data64* pointer64;
             Data64 total_byte_count = static_cast<Data64>(size) * sizeof(T);
             cudaMallocAsync(&pointer64, total_byte_count, stream);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
             gen_random_bytes(features, pointer64, total_byte_count,
                              entropy_input, additional_input, stream);
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
 
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
@@ -758,10 +868,31 @@ namespace rngongpu
             std::vector<unsigned char>& entropy_input,
             std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             Data64* pointer64 = reinterpret_cast<Data64*>(pointer);
             Data64 total_byte_count = static_cast<Data64>(size) * sizeof(T);
             gen_random_bytes(features, pointer64, total_byte_count,
                              entropy_input, additional_input, stream);
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
 
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
@@ -778,6 +909,16 @@ namespace rngongpu
             int repeat_count, std::vector<unsigned char>& entropy_input,
             std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             Data64* pointer64;
             int size = 1 << log_size;
             Data64 total_byte_count =
@@ -786,6 +927,17 @@ namespace rngongpu
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
             gen_random_bytes(features, pointer64, total_byte_count,
                              entropy_input, additional_input, stream);
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
 
             T* pointer_T = reinterpret_cast<T*>(pointer64);
             int total_thread =
@@ -805,6 +957,16 @@ namespace rngongpu
             int repeat_count, std::vector<unsigned char>& entropy_input,
             std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             Data64* pointer64;
             int size = 1 << log_size;
             Data64 total_byte_count =
@@ -813,6 +975,17 @@ namespace rngongpu
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
             gen_random_bytes(features, pointer64, total_byte_count,
                              entropy_input, additional_input, stream);
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
 
             T* pointer_T = reinterpret_cast<T*>(pointer64);
             int total_thread =
@@ -833,10 +1006,31 @@ namespace rngongpu
             std::vector<unsigned char>& entropy_input,
             std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             Data64* pointer64 = reinterpret_cast<Data64*>(pointer);
             Data64 total_byte_count = static_cast<Data64>(size) * sizeof(T);
             gen_random_bytes(features, pointer64, total_byte_count,
                              entropy_input, additional_input, stream);
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
 
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
@@ -852,10 +1046,31 @@ namespace rngongpu
             Data32 size, std::vector<unsigned char>& entropy_input,
             std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             Data64* pointer64 = reinterpret_cast<Data64*>(pointer);
             Data64 total_byte_count = static_cast<Data64>(size) * sizeof(T);
             gen_random_bytes(features, pointer64, total_byte_count,
                              entropy_input, additional_input, stream);
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
 
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
@@ -872,6 +1087,16 @@ namespace rngongpu
             std::vector<unsigned char>& entropy_input,
             std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             Data64* pointer64;
             int size = 1 << log_size;
             Data64 total_byte_count =
@@ -880,6 +1105,17 @@ namespace rngongpu
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
             gen_random_bytes(features, pointer64, total_byte_count,
                              entropy_input, additional_input, stream);
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
 
             T* pointer_T = reinterpret_cast<T*>(pointer64);
             int total_thread =
@@ -899,6 +1135,16 @@ namespace rngongpu
             std::vector<unsigned char>& entropy_input,
             std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                if (features.event_control_)
+                {
+                    cudaStreamWaitEvent(stream, features.event_control_, 0);
+                    cudaEventDestroy(features.event_control_);
+                    features.event_control_ = nullptr;
+                }
+            }
+
             Data64* pointer64;
             int size = 1 << log_size;
             Data64 total_byte_count =
@@ -907,6 +1153,17 @@ namespace rngongpu
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
             gen_random_bytes(features, pointer64, total_byte_count,
                              entropy_input, additional_input, stream);
+
+            cudaEvent_t event_in;
+            cudaEventCreate(&event_in);
+            cudaEventRecord(event_in, stream);
+
+            {
+                std::lock_guard<std::mutex> lock(features.mutex_);
+                features.event_control_ = event_in;
+            }
+
+            cudaStreamSynchronize(stream);
 
             T* pointer_T = reinterpret_cast<T*>(pointer64);
             int total_thread =
