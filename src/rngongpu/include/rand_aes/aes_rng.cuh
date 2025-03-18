@@ -679,13 +679,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
         }
 
         template <typename T>
@@ -712,13 +713,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
 
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
@@ -755,13 +757,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
 
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
@@ -799,13 +802,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
 
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
@@ -844,13 +848,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
 
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
@@ -886,13 +891,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
 
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
@@ -931,13 +937,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
 
             T* pointer_T = reinterpret_cast<T*>(pointer64);
             int total_thread =
@@ -979,13 +986,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
 
             T* pointer_T = reinterpret_cast<T*>(pointer64);
             int total_thread =
@@ -1024,13 +1032,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
 
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
@@ -1064,13 +1073,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
 
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
@@ -1109,13 +1119,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
 
             T* pointer_T = reinterpret_cast<T*>(pointer64);
             int total_thread =
@@ -1157,13 +1168,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
 
             T* pointer_T = reinterpret_cast<T*>(pointer64);
             int total_thread =
@@ -1197,6 +1209,11 @@ namespace rngongpu
         {
             return this->nonce_;
         }
+
+        void set(const std::vector<unsigned char>& entropy_input,
+                 const std::vector<unsigned char>& nonce,
+                 const std::vector<unsigned char>& personalization_string,
+                 cudaStream_t stream = cudaStreamDefault);
 
         void reseed(const std::vector<unsigned char>& entropy_input,
                     const std::vector<unsigned char>& additional_input);

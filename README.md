@@ -88,7 +88,8 @@ To run benchmarks:
 $ cmake -S . -D RNGonGPU_BUILD_BENCHMARKS=ON -D CMAKE_CUDA_ARCHITECTURES=89 -B build
 $ cmake --build ./build/
 
-$ ./build/bin/benchmark/benchmark --disable-blocking-kernel
+$ ./build/bin/benchmark/<...> --disable-blocking-kernel
+$ Example: ./build/bin/benchmark/aes_benchmark --disable-blocking-kernel
 ```
 
 ## Using RNGonGPU in a downstream CMake project

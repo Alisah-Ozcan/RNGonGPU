@@ -92,13 +92,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
         }
 
         template <typename T>
@@ -125,13 +126,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
         }
 
         template <typename T>
@@ -159,13 +161,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
         }
 
         template <typename T>
@@ -193,13 +196,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
         }
 
         // --
@@ -229,13 +233,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
         }
 
         template <typename T, typename U>
@@ -262,13 +267,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
         }
 
         template <typename T, typename U>
@@ -296,13 +302,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
         }
 
         template <typename T, typename U>
@@ -330,13 +337,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
         }
 
         // --
@@ -365,13 +373,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
         }
 
         template <typename T>
@@ -398,13 +407,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
         }
 
         template <typename T>
@@ -432,13 +442,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
         }
 
         template <typename T>
@@ -466,13 +477,14 @@ namespace rngongpu
             cudaEvent_t event_in;
             cudaEventCreate(&event_in);
             cudaEventRecord(event_in, stream);
+            RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
             {
                 std::lock_guard<std::mutex> lock(features.mutex_);
                 features.event_control_ = event_in;
             }
 
-            cudaStreamSynchronize(stream);
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
         }
     };
 

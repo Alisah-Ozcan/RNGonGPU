@@ -43,6 +43,76 @@ namespace rngongpu
         out << std::dec << std::endl << std::endl;
     }
 
+    void RNG<Mode::AES>::set(
+        const std::vector<unsigned char>& entropy_input,
+        const std::vector<unsigned char>& nonce,
+        const std::vector<unsigned char>& personalization_string,
+        cudaStream_t stream)
+    {
+        {
+            std::lock_guard<std::mutex> lock((*this).mutex_);
+            if ((*this).event_control_)
+            {
+                cudaStreamWaitEvent(stream, (*this).event_control_, 0);
+                cudaEventDestroy((*this).event_control_);
+                (*this).event_control_ = nullptr;
+            }
+        }
+
+        if (entropy_input.size() < 16)
+        {
+            throw std::runtime_error("Error: Invalid key size!");
+        }
+
+        (*this).reseed_counter_ = 1ULL;
+        switch ((*this).security_level_)
+        {
+            case SecurityLevel::AES128:
+                (*this).key_len_ = 16;
+                break;
+            case SecurityLevel::AES192:
+                (*this).key_len_ = 24;
+                break;
+            case SecurityLevel::AES256:
+                (*this).key_len_ = 32;
+                break;
+            default:
+                throw std::runtime_error("Error: Unsupported security level!");
+        }
+
+        (*this).seed_len_ = (*this).key_len_ + (*this).nonce_len_;
+        (*this).seed_ = entropy_input;
+        (*this).seed_.insert((*this).seed_.end(), nonce.begin(), nonce.end());
+        (*this).seed_.insert((*this).seed_.end(),
+                             personalization_string.begin(),
+                             personalization_string.end());
+        std::vector<unsigned char> seed_material =
+            RNGTraits<Mode::AES>::derivation_function(*this, (*this).seed_,
+                                                      (*this).seed_len_);
+        (*this).key_ = std::vector<unsigned char>((*this).key_len_, 0);
+        (*this).nonce_ = std::vector<unsigned char>((*this).nonce_len_, 0);
+
+        RNGTraits<Mode::AES>::update(*this, seed_material);
+
+        std::vector<unsigned char> nonce_rev = (*this).nonce_;
+        std::reverse(nonce_rev.begin(), nonce_rev.end());
+        cudaMemcpyAsync((*this).d_nonce_, nonce_rev.data(), 4 * sizeof(Data32),
+                        cudaMemcpyHostToDevice, stream);
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+        cudaEvent_t event_in;
+        cudaEventCreate(&event_in);
+        cudaEventRecord(event_in, stream);
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+        {
+            std::lock_guard<std::mutex> lock((*this).mutex_);
+            (*this).event_control_ = event_in;
+        }
+
+        RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
+    }
+
     void
     RNG<Mode::AES>::reseed(const std::vector<unsigned char>& entropy_input,
                            const std::vector<unsigned char>& additional_input)

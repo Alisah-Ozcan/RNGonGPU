@@ -13,9 +13,18 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nvbench)
 
-add_executable(benchmark benchmark.cu)
-target_link_libraries(benchmark PRIVATE rngongpu CUDA::cudart nvbench::main)
-set_target_properties(benchmark PROPERTIES
+add_executable(aes_benchmark benchmark_aes.cu)
+target_link_libraries(aes_benchmark PRIVATE rngongpu CUDA::cudart nvbench::main)
+set_target_properties(aes_benchmark PROPERTIES
+    CUDA_SEPARABLE_COMPILATION OFF
+    POSITION_INDEPENDENT_CODE ON
+    CUDA_RUNTIME_LIBRARY Static
+    CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES}
+)
+
+add_executable(cuda_benchmark benchmark_cuda.cu)
+target_link_libraries(cuda_benchmark PRIVATE rngongpu CUDA::cudart nvbench::main)
+set_target_properties(cuda_benchmark PROPERTIES
     CUDA_SEPARABLE_COMPILATION OFF
     POSITION_INDEPENDENT_CODE ON
     CUDA_RUNTIME_LIBRARY Static
