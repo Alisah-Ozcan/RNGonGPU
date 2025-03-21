@@ -48,8 +48,10 @@ TEST_P(RNGONGPU_TEST_DRBGVECTORS_PR_FALSE, DRBGVECTORS_PR_FALSE)
             // std::cout << "Instantiate: " << std::endl;
             // drbg.print_params();
 
-            EXPECT_EQ(drbg.get_key(), hex_string_to_bytes(test.key_instantiate));
-            EXPECT_EQ(drbg.get_nonce(), hex_string_to_bytes(test.v_instantiate));
+            EXPECT_EQ(drbg.get_key(),
+                      hex_string_to_bytes(test.key_instantiate));
+            EXPECT_EQ(drbg.get_nonce(),
+                      hex_string_to_bytes(test.v_instantiate));
 
             std::vector<unsigned char> entropy_input_reseed =
                 hex_string_to_bytes(test.entropy_input_reseed);
@@ -144,8 +146,10 @@ TEST_P(RNGONGPU_TEST_DRBGVECTORS_PR_TRUE, DRBGVECTORS_PR_TRUE)
             // std::cout << "Instantiate: " << std::endl;
             // drbg.print_params();
 
-            EXPECT_EQ(drbg.get_key(), hex_string_to_bytes(test.key_instantiate));
-            EXPECT_EQ(drbg.get_nonce(), hex_string_to_bytes(test.v_instantiate));
+            EXPECT_EQ(drbg.get_key(),
+                      hex_string_to_bytes(test.key_instantiate));
+            EXPECT_EQ(drbg.get_nonce(),
+                      hex_string_to_bytes(test.v_instantiate));
 
             std::vector<unsigned char> additional_input1 =
                 hex_string_to_bytes(test.additional_input_generate_first);
@@ -228,8 +232,10 @@ TEST_P(RNGONGPU_TEST_DRBGVECTORS_NO_RESEED, DRBGVECTORS_NO_RESEED)
             // std::cout << "Instantiate: " << std::endl;
             // drbg.print_params();
 
-            EXPECT_EQ(drbg.get_key(), hex_string_to_bytes(test.key_instantiate));
-            EXPECT_EQ(drbg.get_nonce(), hex_string_to_bytes(test.v_instantiate));
+            EXPECT_EQ(drbg.get_key(),
+                      hex_string_to_bytes(test.key_instantiate));
+            EXPECT_EQ(drbg.get_nonce(),
+                      hex_string_to_bytes(test.v_instantiate));
 
             std::vector<unsigned char> additional_input1 =
                 hex_string_to_bytes(test.additional_input_generate_first);

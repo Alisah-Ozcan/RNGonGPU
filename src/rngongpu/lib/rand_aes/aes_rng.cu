@@ -49,15 +49,7 @@ namespace rngongpu
         const std::vector<unsigned char>& personalization_string,
         cudaStream_t stream)
     {
-        {
-            std::lock_guard<std::mutex> lock((*this).mutex_);
-            if ((*this).event_control_)
-            {
-                cudaStreamWaitEvent(stream, (*this).event_control_, 0);
-                cudaEventDestroy((*this).event_control_);
-                (*this).event_control_ = nullptr;
-            }
-        }
+        std::lock_guard<std::mutex> lock((*this).mutex_);
 
         if (entropy_input.size() < 16)
         {
@@ -99,16 +91,6 @@ namespace rngongpu
         cudaMemcpyAsync((*this).d_nonce_, nonce_rev.data(), 4 * sizeof(Data32),
                         cudaMemcpyHostToDevice, stream);
         RNGONGPU_CUDA_CHECK(cudaGetLastError());
-
-        cudaEvent_t event_in;
-        cudaEventCreate(&event_in);
-        cudaEventRecord(event_in, stream);
-        RNGONGPU_CUDA_CHECK(cudaGetLastError());
-
-        {
-            std::lock_guard<std::mutex> lock((*this).mutex_);
-            (*this).event_control_ = event_in;
-        }
 
         RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
     }
