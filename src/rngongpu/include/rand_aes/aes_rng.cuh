@@ -375,7 +375,8 @@ namespace rngongpu
          * generate functions.
          */
         static __host__ void update(ModeFeature<Mode::AES>& features,
-                                    std::vector<unsigned char> additional_input)
+                                    std::vector<unsigned char> additional_input,
+                                    cudaStream_t stream = cudaStreamDefault)
         {
             EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
             if (!ctx)
@@ -448,13 +449,14 @@ namespace rngongpu
 
             std::vector<unsigned char> nonce_rev = features.nonce_;
             std::reverse(nonce_rev.begin(), nonce_rev.end());
-            cudaMemcpy(features.d_nonce_, nonce_rev.data(), 4 * sizeof(Data32),
-                       cudaMemcpyHostToDevice);
+            cudaMemcpyAsync(features.d_nonce_, nonce_rev.data(),
+                            4 * sizeof(Data32), cudaMemcpyHostToDevice, stream);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
         }
 
-        static __host__ void increment_nonce(ModeFeature<Mode::AES>& features,
-                                             Data32 size)
+        static __host__ void
+        increment_nonce(ModeFeature<Mode::AES>& features, Data32 size,
+                        cudaStream_t stream = cudaStreamDefault)
         {
             Data32 carry = size;
             for (int i = features.nonce_.size() - 1; i >= 0 && carry > 0; i--)
@@ -466,8 +468,8 @@ namespace rngongpu
 
             std::vector<unsigned char> nonce_rev = features.nonce_;
             std::reverse(nonce_rev.begin(), nonce_rev.end());
-            cudaMemcpy(features.d_nonce_, nonce_rev.data(), 4 * sizeof(Data32),
-                       cudaMemcpyHostToDevice);
+            cudaMemcpyAsync(features.d_nonce_, nonce_rev.data(),
+                            4 * sizeof(Data32), cudaMemcpyHostToDevice, stream);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
         }
 
@@ -482,7 +484,7 @@ namespace rngongpu
             if (features.is_prediction_resistance_enabled_ ||
                 features.reseed_counter_ >= features.reseed_interval_)
             {
-                reseed(features, entropy_input, additional_input);
+                reseed(features, entropy_input, additional_input, stream);
                 additional_input_in =
                     std::vector<unsigned char>(features.seed_len_, 0);
             }
@@ -492,7 +494,7 @@ namespace rngongpu
                 {
                     additional_input_in = derivation_function(
                         features, additional_input, features.seed_len_);
-                    update(features, additional_input_in);
+                    update(features, additional_input_in, stream);
                 }
                 else
                 {
@@ -546,8 +548,8 @@ namespace rngongpu
             }
 
             cudaFree(range); // Remove it!
-            increment_nonce(features, (num_u64 + 1) / 2);
-            update(features, additional_input_in);
+            increment_nonce(features, (num_u64 + 1) / 2, stream);
+            update(features, additional_input_in, stream);
             features.reseed_counter_ +=
                 (requested_number_of_bytes / features.max_bytes_per_request_ +
                  1);
@@ -570,7 +572,7 @@ namespace rngongpu
         static __host__ void
         reseed(ModeFeature<Mode::AES>& features,
                const std::vector<unsigned char>& entropy_input,
-               std::vector<unsigned char> additional_input)
+               std::vector<unsigned char> additional_input, cudaStream_t stream)
         {
             std::vector<unsigned char> additional_input_in = additional_input;
             std::vector<unsigned char> seed_material = entropy_input;
@@ -580,7 +582,7 @@ namespace rngongpu
             seed_material = derivation_function(features, seed_material,
                                                 features.seed_len_);
 
-            update(features, seed_material);
+            update(features, seed_material, stream);
             features.reseed_counter_ = 1;
         }
 
@@ -703,9 +705,10 @@ namespace rngongpu
             std::lock_guard<std::mutex> lock(features.mutex_);
 
             Data64* pointer64 = reinterpret_cast<Data64*>(pointer);
-            int size = 1 << log_size;
+            Data64 size = 1ULL << log_size;
             Data64 total_byte_count =
-                static_cast<Data64>(size * repeat_count) * sizeof(T);
+                static_cast<Data64>(size * repeat_count * mod_count) *
+                sizeof(T);
             gen_random_bytes(features, pointer64, total_byte_count,
                              entropy_input, additional_input, stream);
 
@@ -730,9 +733,10 @@ namespace rngongpu
             std::lock_guard<std::mutex> lock(features.mutex_);
 
             Data64* pointer64 = reinterpret_cast<Data64*>(pointer);
-            int size = 1 << log_size;
+            Data64 size = 1ULL << log_size;
             Data64 total_byte_count =
-                static_cast<Data64>(size * repeat_count) * sizeof(T);
+                static_cast<Data64>(size * repeat_count * mod_count) *
+                sizeof(T);
             gen_random_bytes(features, pointer64, total_byte_count,
                              entropy_input, additional_input, stream);
 
@@ -809,9 +813,10 @@ namespace rngongpu
             std::lock_guard<std::mutex> lock(features.mutex_);
 
             Data64* pointer64;
-            int size = 1 << log_size;
+            Data64 size = 1ULL << log_size;
             Data64 total_byte_count =
-                static_cast<Data64>(size * repeat_count) * sizeof(T);
+                static_cast<Data64>(size * repeat_count * mod_count) *
+                sizeof(T);
             cudaMallocAsync(&pointer64, total_byte_count, stream);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
             gen_random_bytes(features, pointer64, total_byte_count,
@@ -840,9 +845,10 @@ namespace rngongpu
             std::lock_guard<std::mutex> lock(features.mutex_);
 
             Data64* pointer64;
-            int size = 1 << log_size;
+            Data64 size = 1ULL << log_size;
             Data64 total_byte_count =
-                static_cast<Data64>(size * repeat_count) * sizeof(T);
+                static_cast<Data64>(size * repeat_count * mod_count) *
+                sizeof(T);
             cudaMallocAsync(&pointer64, total_byte_count, stream);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
             gen_random_bytes(features, pointer64, total_byte_count,
@@ -919,9 +925,10 @@ namespace rngongpu
             std::lock_guard<std::mutex> lock(features.mutex_);
 
             Data64* pointer64;
-            int size = 1 << log_size;
+            Data64 size = 1ULL << log_size;
             Data64 total_byte_count =
-                static_cast<Data64>(size * repeat_count) * sizeof(T);
+                static_cast<Data64>(size * repeat_count * mod_count) *
+                sizeof(T);
             cudaMallocAsync(&pointer64, total_byte_count, stream);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
             gen_random_bytes(features, pointer64, total_byte_count,
@@ -950,9 +957,10 @@ namespace rngongpu
             std::lock_guard<std::mutex> lock(features.mutex_);
 
             Data64* pointer64;
-            int size = 1 << log_size;
+            Data64 size = 1ULL << log_size;
             Data64 total_byte_count =
-                static_cast<Data64>(size * repeat_count) * sizeof(T);
+                static_cast<Data64>(size * repeat_count * mod_count) *
+                sizeof(T);
             cudaMallocAsync(&pointer64, total_byte_count, stream);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
             gen_random_bytes(features, pointer64, total_byte_count,
@@ -999,7 +1007,8 @@ namespace rngongpu
                  cudaStream_t stream = cudaStreamDefault);
 
         void reseed(const std::vector<unsigned char>& entropy_input,
-                    const std::vector<unsigned char>& additional_input);
+                    const std::vector<unsigned char>& additional_input,
+                    cudaStream_t stream = cudaStreamDefault);
 
         /**
          * @brief Generates uniform random numbers.

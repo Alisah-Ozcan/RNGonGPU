@@ -97,10 +97,13 @@ namespace rngongpu
 
     void
     RNG<Mode::AES>::reseed(const std::vector<unsigned char>& entropy_input,
-                           const std::vector<unsigned char>& additional_input)
+                           const std::vector<unsigned char>& additional_input,
+                           cudaStream_t stream)
     {
         std::lock_guard<std::mutex> lock((*this).mutex_);
-        RNGTraits<Mode::AES>::reseed(*this, entropy_input, additional_input);
+        RNGTraits<Mode::AES>::reseed(*this, entropy_input, additional_input,
+                                     stream);
+        RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
     }
 
     template <typename T>
