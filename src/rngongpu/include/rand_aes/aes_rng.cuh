@@ -768,14 +768,24 @@ namespace rngongpu
             gen_random_bytes(features, pointer64, total_byte_count,
                              entropy_input, additional_input, stream);
 
-            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
-
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
-            box_muller_kernel<<<features.num_blocks_,
-                                features.thread_per_block_, 0, stream>>>(
-                std_dev, pointer64, pointer, size, total_thread);
+            if constexpr (std::is_same_v<T, f32>)
+            {
+                Data32* pointer32 = reinterpret_cast<Data32*>(pointer64);
+                box_muller_kernel<<<features.num_blocks_,
+                                    features.thread_per_block_, 0, stream>>>(
+                    std_dev, pointer32, pointer, size, total_thread);
+            }
+            else if constexpr (std::is_same_v<T, f64>)
+            {
+                box_muller_kernel<<<features.num_blocks_,
+                                    features.thread_per_block_, 0, stream>>>(
+                    std_dev, pointer64, pointer, size, total_thread);
+            }
+
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
             RNGONGPU_CUDA_CHECK(cudaFree(pointer64));
         }
 
@@ -815,23 +825,22 @@ namespace rngongpu
             Data64* pointer64;
             Data64 size = 1ULL << log_size;
             Data64 total_byte_count =
-                static_cast<Data64>(size * repeat_count * mod_count) *
-                sizeof(T);
+                static_cast<Data64>(size * repeat_count) * sizeof(T);
             cudaMallocAsync(&pointer64, total_byte_count, stream);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
             gen_random_bytes(features, pointer64, total_byte_count,
                              entropy_input, additional_input, stream);
 
-            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
-
             T* pointer_T = reinterpret_cast<T*>(pointer64);
             int total_thread =
                 features.num_blocks_ * features.thread_per_block_;
+
             box_muller_kernel<<<features.num_blocks_,
                                 features.thread_per_block_, 0, stream>>>(
                 std_dev, pointer_T, pointer, modulus, log_size, mod_count,
                 repeat_count, total_thread);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
             RNGONGPU_CUDA_CHECK(cudaFree(pointer64));
         }
 
@@ -847,14 +856,11 @@ namespace rngongpu
             Data64* pointer64;
             Data64 size = 1ULL << log_size;
             Data64 total_byte_count =
-                static_cast<Data64>(size * repeat_count * mod_count) *
-                sizeof(T);
+                static_cast<Data64>(size * repeat_count) * sizeof(T);
             cudaMallocAsync(&pointer64, total_byte_count, stream);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
             gen_random_bytes(features, pointer64, total_byte_count,
                              entropy_input, additional_input, stream);
-
-            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
 
             T* pointer_T = reinterpret_cast<T*>(pointer64);
             int total_thread =
@@ -864,6 +870,7 @@ namespace rngongpu
                 std_dev, pointer_T, pointer, modulus, log_size, mod_count,
                 mod_index, repeat_count, total_thread);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
             RNGONGPU_CUDA_CHECK(cudaFree(pointer64));
         }
 
@@ -927,14 +934,11 @@ namespace rngongpu
             Data64* pointer64;
             Data64 size = 1ULL << log_size;
             Data64 total_byte_count =
-                static_cast<Data64>(size * repeat_count * mod_count) *
-                sizeof(T);
+                static_cast<Data64>(size * repeat_count) * sizeof(T);
             cudaMallocAsync(&pointer64, total_byte_count, stream);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
             gen_random_bytes(features, pointer64, total_byte_count,
                              entropy_input, additional_input, stream);
-
-            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
 
             T* pointer_T = reinterpret_cast<T*>(pointer64);
             int total_thread =
@@ -944,6 +948,7 @@ namespace rngongpu
                 pointer_T, pointer, modulus, log_size, mod_count, repeat_count,
                 total_thread);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
             RNGONGPU_CUDA_CHECK(cudaFree(pointer64));
         }
 
@@ -959,14 +964,11 @@ namespace rngongpu
             Data64* pointer64;
             Data64 size = 1ULL << log_size;
             Data64 total_byte_count =
-                static_cast<Data64>(size * repeat_count * mod_count) *
-                sizeof(T);
+                static_cast<Data64>(size * repeat_count) * sizeof(T);
             cudaMallocAsync(&pointer64, total_byte_count, stream);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
             gen_random_bytes(features, pointer64, total_byte_count,
                              entropy_input, additional_input, stream);
-
-            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
 
             T* pointer_T = reinterpret_cast<T*>(pointer64);
             int total_thread =
@@ -976,6 +978,7 @@ namespace rngongpu
                 pointer_T, pointer, modulus, log_size, mod_count, mod_index,
                 repeat_count, total_thread);
             RNGONGPU_CUDA_CHECK(cudaGetLastError());
+            RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
             RNGONGPU_CUDA_CHECK(cudaFree(pointer64));
         }
     };
