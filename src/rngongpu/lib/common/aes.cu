@@ -41,17 +41,18 @@ namespace rngongpu
 
     // Key expansion from given key set, populate rk[44]
     __host__ void keyExpansion(std::vector<unsigned char> key, Data32* rk)
-    {
+    {   
+        std::vector<Data32> key_cpu(AES_128_KEY_SIZE_INT);
         Data32 rk0, rk1, rk2, rk3;
         rk0 = (key[0] << 24) | (key[1] << 16) | (key[2] << 8) | key[3];
         rk1 = (key[4] << 24) | (key[5] << 16) | (key[6] << 8) | key[7];
         rk2 = (key[8] << 24) | (key[9] << 16) | (key[10] << 8) | key[11];
         rk3 = (key[12] << 24) | (key[13] << 16) | (key[14] << 8) | key[15];
 
-        rk[0] = rk0;
-        rk[1] = rk1;
-        rk[2] = rk2;
-        rk[3] = rk3;
+        key_cpu[0] = rk0;
+        key_cpu[1] = rk1;
+        key_cpu[2] = rk2;
+        key_cpu[3] = rk3;
         for (Data8 roundCount = 0; roundCount < ROUND_COUNT; roundCount++)
         {
             Data32 temp = rk3;
@@ -61,15 +62,17 @@ namespace rngongpu
             rk2 = rk2 ^ rk1;
             rk3 = rk2 ^ rk3;
 
-            rk[roundCount * 4 + 4] = rk0;
-            rk[roundCount * 4 + 5] = rk1;
-            rk[roundCount * 4 + 6] = rk2;
-            rk[roundCount * 4 + 7] = rk3;
+            key_cpu[roundCount * 4 + 4] = rk0;
+            key_cpu[roundCount * 4 + 5] = rk1;
+            key_cpu[roundCount * 4 + 6] = rk2;
+            key_cpu[roundCount * 4 + 7] = rk3;
         }
+        cudaMemcpy(rk, key_cpu.data(), AES_128_KEY_SIZE_INT * sizeof(Data32), cudaMemcpyHostToDevice);
     }
 
     __host__ void keyExpansion192(std::vector<unsigned char> key, Data32* rk)
-    {
+    {   
+        std::vector<Data32> key_cpu(AES_192_KEY_SIZE_INT);
         Data32 rk0, rk1, rk2, rk3, rk4, rk5;
         rk0 = (key[0] << 24) | (key[1] << 16) | (key[2] << 8) | key[3];
         rk1 = (key[4] << 24) | (key[5] << 16) | (key[6] << 8) | key[7];
@@ -78,12 +81,12 @@ namespace rngongpu
         rk4 = (key[16] << 24) | (key[17] << 16) | (key[18] << 8) | key[19];
         rk5 = (key[20] << 24) | (key[21] << 16) | (key[22] << 8) | key[23];
 
-        rk[0] = rk0;
-        rk[1] = rk1;
-        rk[2] = rk2;
-        rk[3] = rk3;
-        rk[4] = rk4;
-        rk[5] = rk5;
+        key_cpu[0] = rk0;
+        key_cpu[1] = rk1;
+        key_cpu[2] = rk2;
+        key_cpu[3] = rk3;
+        key_cpu[4] = rk4;
+        key_cpu[5] = rk5;
 
         for (Data8 roundCount = 0; roundCount < ROUND_COUNT_192; roundCount++)
         {
@@ -96,21 +99,23 @@ namespace rngongpu
             rk4 = rk4 ^ rk3;
             rk5 = rk5 ^ rk4;
 
-            rk[roundCount * 6 + 6] = rk0;
-            rk[roundCount * 6 + 7] = rk1;
-            rk[roundCount * 6 + 8] = rk2;
-            rk[roundCount * 6 + 9] = rk3;
+            key_cpu[roundCount * 6 + 6] = rk0;
+            key_cpu[roundCount * 6 + 7] = rk1;
+            key_cpu[roundCount * 6 + 8] = rk2;
+            key_cpu[roundCount * 6 + 9] = rk3;
             if (roundCount == 7)
             {
                 break;
             }
-            rk[roundCount * 6 + 10] = rk4;
-            rk[roundCount * 6 + 11] = rk5;
+            key_cpu[roundCount * 6 + 10] = rk4;
+            key_cpu[roundCount * 6 + 11] = rk5;
         }
+        cudaMemcpy(rk, key_cpu.data(), AES_192_KEY_SIZE_INT * sizeof(Data32), cudaMemcpyHostToDevice);
     }
 
     __host__ void keyExpansion256(std::vector<unsigned char> key, Data32* rk)
-    {
+    {   
+        std::vector<Data32> key_cpu(AES_256_KEY_SIZE_INT);
         Data32 rk0, rk1, rk2, rk3, rk4, rk5, rk6, rk7;
         rk0 = (key[0] << 24) | (key[1] << 16) | (key[2] << 8) | key[3];
         rk1 = (key[4] << 24) | (key[5] << 16) | (key[6] << 8) | key[7];
@@ -121,14 +126,14 @@ namespace rngongpu
         rk6 = (key[24] << 24) | (key[25] << 16) | (key[26] << 8) | key[27];
         rk7 = (key[28] << 24) | (key[29] << 16) | (key[30] << 8) | key[31];
 
-        rk[0] = rk0;
-        rk[1] = rk1;
-        rk[2] = rk2;
-        rk[3] = rk3;
-        rk[4] = rk4;
-        rk[5] = rk5;
-        rk[6] = rk6;
-        rk[7] = rk7;
+        key_cpu[0] = rk0;
+        key_cpu[1] = rk1;
+        key_cpu[2] = rk2;
+        key_cpu[3] = rk3;
+        key_cpu[4] = rk4;
+        key_cpu[5] = rk5;
+        key_cpu[6] = rk6;
+        key_cpu[7] = rk7;
 
         for (Data8 roundCount = 0; roundCount < ROUND_COUNT_256; roundCount++)
         {
@@ -144,24 +149,25 @@ namespace rngongpu
             rk6 = rk6 ^ rk5;
             rk7 = rk7 ^ rk6;
 
-            rk[roundCount * 8 + 8] = rk0;
-            rk[roundCount * 8 + 9] = rk1;
-            rk[roundCount * 8 + 10] = rk2;
-            rk[roundCount * 8 + 11] = rk3;
+            key_cpu[roundCount * 8 + 8] = rk0;
+            key_cpu[roundCount * 8 + 9] = rk1;
+            key_cpu[roundCount * 8 + 10] = rk2;
+            key_cpu[roundCount * 8 + 11] = rk3;
             if (roundCount == 6)
             {
                 break;
             }
-            rk[roundCount * 8 + 12] = rk4;
-            rk[roundCount * 8 + 13] = rk5;
-            rk[roundCount * 8 + 14] = rk6;
-            rk[roundCount * 8 + 15] = rk7;
+            key_cpu[roundCount * 8 + 12] = rk4;
+            key_cpu[roundCount * 8 + 13] = rk5;
+            key_cpu[roundCount * 8 + 14] = rk6;
+            key_cpu[roundCount * 8 + 15] = rk7;
         }
+        cudaMemcpy(rk, key_cpu.data(), AES_256_KEY_SIZE_INT * sizeof(Data32), cudaMemcpyHostToDevice);
     }
 
     __global__ void
     counterWithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBoxCihangir(
-        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64* range,
+        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64 range,
         Data8* SAES, Data32 totalThreadCount, Data64* rng_res, Data32 N)
     {
         Data64 threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
@@ -193,7 +199,7 @@ namespace rngongpu
         pt1Init = pt[2];
         pt2Init = pt[1];
         pt3Init = pt[0];
-        Data64 threadRange = *range;
+        Data64 threadRange = range;
         Data64 threadRangeStart = pt2Init;
         threadRangeStart = threadRangeStart << 32;
         threadRangeStart ^= pt3Init;
@@ -368,7 +374,7 @@ namespace rngongpu
 
     __global__ void
     counter192WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox(
-        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64* range,
+        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64 range,
         Data32 totalThreadCount, Data64* rng_res, Data32 N)
     {
         int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
@@ -411,7 +417,7 @@ namespace rngongpu
         pt2Init = pt[1];
         pt3Init = pt[0];
 
-        Data32 threadRange = *range;
+        Data32 threadRange = range;
         Data64 threadRangeStart = pt2Init;
         threadRangeStart = threadRangeStart << 32;
         threadRangeStart ^= pt3Init;
@@ -544,7 +550,7 @@ namespace rngongpu
 
     __global__ void
     counter256WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox(
-        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64* range,
+        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64 range,
         Data32 totalThreadCount, Data64* rng_res, Data32 N)
     {
         int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
@@ -587,7 +593,7 @@ namespace rngongpu
         pt2Init = pt[1];
         pt3Init = pt[0];
 
-        Data32 threadRange = *range;
+        Data32 threadRange = range;
         Data64 threadRangeStart = pt2Init;
         threadRangeStart = threadRangeStart << 32;
         threadRangeStart ^= pt3Init;

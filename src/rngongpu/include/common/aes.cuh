@@ -595,17 +595,17 @@ namespace rngongpu
 
     __global__ void
     counterWithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBoxCihangir(
-        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64* range,
+        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64 range,
         Data8* SAES, Data32 totalThreadCount, Data64* rng_res, Data32 N);
 
     __global__ void
     counter192WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox(
-        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64* range,
+        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64 range,
         Data32 totalThreadCount, Data64* rng_res, Data32 N);
 
     __global__ void
     counter256WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox(
-        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64* range,
+        Data32* pt, Data32* rk, Data32* t0G, Data32* t4G, Data64 range,
         Data32 totalThreadCount, Data64* rng_res, Data32 N);
 
     __device__ Data64 reverseBytesULL(Data64 x);

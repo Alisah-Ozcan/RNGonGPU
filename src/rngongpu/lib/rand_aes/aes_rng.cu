@@ -60,17 +60,17 @@ namespace rngongpu
         switch (features.security_level_)
         {
             case SecurityLevel::AES128:
-                cudaMallocManaged(&(features.round_keys_),
+                cudaMalloc(&(features.round_keys_),
                                   AES_128_KEY_SIZE_INT * sizeof(Data32));
                 RNGONGPU_CUDA_CHECK(cudaGetLastError());
                 break;
             case SecurityLevel::AES192:
-                cudaMallocManaged(&(features.round_keys_),
+                cudaMalloc(&(features.round_keys_),
                                   AES_192_KEY_SIZE_INT * sizeof(Data32));
                 RNGONGPU_CUDA_CHECK(cudaGetLastError());
                 break;
             case SecurityLevel::AES256:
-                cudaMallocManaged(&(features.round_keys_),
+                cudaMalloc(&(features.round_keys_),
                                   AES_256_KEY_SIZE_INT * sizeof(Data32));
                 RNGONGPU_CUDA_CHECK(cudaGetLastError());
                 break;
@@ -82,49 +82,62 @@ namespace rngongpu
         RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
         update(features, seed_material);
-
-        cudaMallocManaged(&features.rcon_, RCON_SIZE * sizeof(Data32));
+        
+        cudaMalloc(&features.rcon_, RCON_SIZE * sizeof(Data32));
         RNGONGPU_CUDA_CHECK(cudaGetLastError());
-        for (int i = 0; i < RCON_SIZE; i++)
-        {
-            features.rcon_[i] = RCON32[i];
-        }
-
-        cudaMallocManaged(&features.t0_, TABLE_SIZE * sizeof(Data32));
-        RNGONGPU_CUDA_CHECK(cudaGetLastError());
-        cudaMallocManaged(&features.t1_, TABLE_SIZE * sizeof(Data32));
-        RNGONGPU_CUDA_CHECK(cudaGetLastError());
-        cudaMallocManaged(&features.t2_, TABLE_SIZE * sizeof(Data32));
-        RNGONGPU_CUDA_CHECK(cudaGetLastError());
-        cudaMallocManaged(&features.t3_, TABLE_SIZE * sizeof(Data32));
-        RNGONGPU_CUDA_CHECK(cudaGetLastError());
-        cudaMallocManaged(&features.t4_, TABLE_SIZE * sizeof(Data32));
-        RNGONGPU_CUDA_CHECK(cudaGetLastError());
-        cudaMallocManaged(&features.t4_0_, TABLE_SIZE * sizeof(Data32));
-        RNGONGPU_CUDA_CHECK(cudaGetLastError());
-        cudaMallocManaged(&features.t4_1_, TABLE_SIZE * sizeof(Data32));
-        RNGONGPU_CUDA_CHECK(cudaGetLastError());
-        cudaMallocManaged(&features.t4_2_, TABLE_SIZE * sizeof(Data32));
-        RNGONGPU_CUDA_CHECK(cudaGetLastError());
-        cudaMallocManaged(&features.t4_3_, TABLE_SIZE * sizeof(Data32));
-        RNGONGPU_CUDA_CHECK(cudaGetLastError());
-        cudaMallocManaged(&features.SAES_d_, 256 * sizeof(Data8));
+        cudaMemcpy(features.rcon_, RCON32, RCON_SIZE * sizeof(Data32), cudaMemcpyHostToDevice);
         RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
-        for (int i = 0; i < TABLE_SIZE; i++)
-        {
-            features.t0_[i] = T0[i];
-            features.t1_[i] = T1[i];
-            features.t2_[i] = T2[i];
-            features.t3_[i] = T3[i];
-            features.t4_[i] = T4[i];
-            features.t4_0_[i] = T4_0[i];
-            features.t4_1_[i] = T4_1[i];
-            features.t4_2_[i] = T4_2[i];
-            features.t4_3_[i] = T4_3[i];
-        }
-        for (int i = 0; i < 256; i++)
-            features.SAES_d_[i] = SAES[i];
+        cudaMalloc(&features.t0_, TABLE_SIZE * sizeof(Data32));
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+        cudaMemcpy(features.t0_, T0, TABLE_SIZE * sizeof(Data32), cudaMemcpyHostToDevice);
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+        cudaMalloc(&features.t1_, TABLE_SIZE * sizeof(Data32));
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+        cudaMemcpy(features.t1_, T1, TABLE_SIZE * sizeof(Data32), cudaMemcpyHostToDevice);
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+        cudaMalloc(&features.t2_, TABLE_SIZE * sizeof(Data32));
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+        cudaMemcpy(features.t2_, T2, TABLE_SIZE * sizeof(Data32), cudaMemcpyHostToDevice);
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+        cudaMalloc(&features.t3_, TABLE_SIZE * sizeof(Data32));
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+        cudaMemcpy(features.t3_, T3, TABLE_SIZE * sizeof(Data32), cudaMemcpyHostToDevice);
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+        cudaMalloc(&features.t4_, TABLE_SIZE * sizeof(Data32));
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+        cudaMemcpy(features.t4_, T4, TABLE_SIZE * sizeof(Data32), cudaMemcpyHostToDevice);
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+        cudaMalloc(&features.t4_0_, TABLE_SIZE * sizeof(Data32));
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+        cudaMemcpy(features.t4_0_, T4_0, TABLE_SIZE * sizeof(Data32), cudaMemcpyHostToDevice);
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+        cudaMalloc(&features.t4_1_, TABLE_SIZE * sizeof(Data32));
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+        cudaMemcpy(features.t4_1_, T4_1, TABLE_SIZE * sizeof(Data32), cudaMemcpyHostToDevice);
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+        cudaMalloc(&features.t4_2_, TABLE_SIZE * sizeof(Data32));
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+        cudaMemcpy(features.t4_2_, T4_2, TABLE_SIZE * sizeof(Data32), cudaMemcpyHostToDevice);
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+
+        cudaMalloc(&features.t4_3_, TABLE_SIZE * sizeof(Data32));
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+        cudaMemcpy(features.t4_3_, T4_3, TABLE_SIZE * sizeof(Data32), cudaMemcpyHostToDevice);
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+                
+        cudaMalloc(&features.SAES_d_, 256 * sizeof(Data8));
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+        cudaMemcpy(features.SAES_d_, SAES, 256 * sizeof(Data8), cudaMemcpyHostToDevice);
+        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+ 
         std::vector<unsigned char> nonce_rev = features.nonce_;
         std::reverse(nonce_rev.begin(), nonce_rev.end());
         cudaMemcpy(features.d_nonce_, nonce_rev.data(), 4 * sizeof(Data32),
@@ -379,13 +392,10 @@ namespace rngongpu
         Data32 num_u64 =
             static_cast<Data32>((requested_number_of_bytes + 7) / 8);
 
-        Data64* range;
-        cudaMallocManaged(&range, sizeof(Data64));
-        RNGONGPU_CUDA_CHECK(cudaGetLastError());
         Data32 threadCount = features.num_blocks_ * features.thread_per_block_;
         double threadCount_d = static_cast<double>(num_u64);
         double threadRange = threadCount_d / (threadCount * 2);
-        *range = ceil(threadRange);
+        Data64 range = ceil(threadRange);
 
         switch (features.security_level_)
         {
@@ -418,7 +428,6 @@ namespace rngongpu
                                          "level in gen_random_bytes!");
         }
 
-        cudaFree(range); // Remove it!
         increment_nonce(features, (num_u64 + 1) / 2, stream);
         update(features, additional_input_in, stream);
         features.reseed_counter_ +=
