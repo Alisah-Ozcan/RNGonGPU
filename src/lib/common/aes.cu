@@ -9,7 +9,7 @@
 //
 // Modifications by Alişah Özcan, 2025.
 
-#include "aes.cuh"
+#include "rngongpu/common/aes.cuh"
 #include <cmath>
 #include <iomanip>
 

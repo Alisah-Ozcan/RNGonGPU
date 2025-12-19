@@ -13,7 +13,7 @@
 #include <curand_kernel.h>
 #include <curand_mtgp32_host.h>
 #include <curand_mtgp32dc_p_11213.h>
-#include "aes.cuh"
+#include "rngongpu/common/aes.cuh"
 
 namespace rngongpu
 {

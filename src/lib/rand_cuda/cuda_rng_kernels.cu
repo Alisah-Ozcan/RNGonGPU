@@ -2,7 +2,7 @@
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 
-#include "cuda_rng_kernels.cuh"
+#include "rngongpu/rand_cuda/cuda_rng_kernels.cuh"
 #include <curand_kernel.h>
 
 namespace rngongpu

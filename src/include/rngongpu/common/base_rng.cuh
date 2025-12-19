@@ -12,8 +12,8 @@
 #include <stdexcept>
 #include <sstream>
 #include <cuda_runtime.h>
-#include "modular_arith.cuh"
-#include "aes.cuh"
+#include "gpuntt/common/modular_arith.cuh"
+#include "rngongpu/common/aes.cuh"
 
 namespace rngongpu
 {

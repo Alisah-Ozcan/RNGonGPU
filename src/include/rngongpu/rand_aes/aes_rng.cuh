@@ -5,9 +5,9 @@
 #ifndef AES_RNG_H
 #define AES_RNG_H
 
-#include "base_rng.cuh"
-#include "aes.cuh"
-//#include "base_rng.cuh"
+#include "rngongpu/common/base_rng.cuh"
+#include "rngongpu/common/aes.cuh"
+//#include "rngongpu/common/base_rng.cuh"
 #include <openssl/evp.h>
 #include <openssl/aes.h>
 #include <openssl/rand.h>

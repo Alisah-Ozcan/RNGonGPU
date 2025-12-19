@@ -2,8 +2,8 @@
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 
-#include "aes_rng.cuh"
-#include "base_rng.cuh"
+#include "rngongpu/rand_aes/aes_rng.cuh"
+#include "rngongpu/common/base_rng.cuh"
 #include <random>
 
 namespace rngongpu

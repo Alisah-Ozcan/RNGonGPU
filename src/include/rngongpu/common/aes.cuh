@@ -18,7 +18,7 @@
 #include <string>
 #include <cuda_runtime.h>
 #include <algorithm>
-#include "modular_arith.cuh"
+#include "gpuntt/common/modular_arith.cuh"
 
 typedef unsigned char Data8;
 typedef unsigned short Data16;

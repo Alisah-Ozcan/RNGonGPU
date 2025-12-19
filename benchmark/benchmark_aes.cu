@@ -12,10 +12,10 @@
 #include <map>
 #include <algorithm>
 #include <iomanip>
-#include "aes_rng.cuh"
-#include "cuda_rng.cuh"
-#include "aes.cuh"
-#include "base_rng.cuh"
+#include "rngongpu/rand_aes/aes_rng.cuh"
+#include "rngongpu/rand_cuda/cuda_rng.cuh"
+#include "rngongpu/common/aes.cuh"
+#include "rngongpu/common/base_rng.cuh"
 
 using namespace std;
 using namespace rngongpu;
