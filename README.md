@@ -59,6 +59,23 @@ $ cmake --build ./build/
 $ sudo cmake --install build
 ```
 
+### Build Types
+
+This project builds as `Release` by default. Choose a different build type with the CMake generator you use:
+
+- Single-config generators (Ninja, Makefiles): set `CMAKE_BUILD_TYPE`.
+```bash
+$ cmake -S . -B build-debug -D CMAKE_BUILD_TYPE=Debug -D CMAKE_CUDA_ARCHITECTURES=89
+$ cmake --build build-debug
+```
+
+- Multi-config generators (Visual Studio, Xcode, Ninja Multi-Config): pick the configuration at build/install time.
+```bash
+$ cmake -S . -B build -D CMAKE_CUDA_ARCHITECTURES=89
+$ cmake --build build --config Debug
+$ sudo cmake --install build --config Release
+```
+
 ## Examples
 
 To run examples:

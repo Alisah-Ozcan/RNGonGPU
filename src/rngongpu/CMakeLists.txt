@@ -3,29 +3,46 @@
 # SPDX-License-Identifier: Apache-2.0
 # Developer: Alişah Özcan
 
-file(GLOB_RECURSE LIB_SOURCE_FILES
-    RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-    CONFIGURE_DEPENDS
-    lib/common/*.cu
-    lib/rand_aes/*.cu
-    lib/rand_cuda/*.cu
-    lib/common/*.cpp
-    lib/rand_aes/*.cpp
-    lib/rand_cuda/*.cpp
-)
-
-file(GLOB_RECURSE LIB_HEADER_FILES
-    RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-    CONFIGURE_DEPENDS
-    include/common/*.cuh
-    include/rand_aes/*.cuh
-    include/rand_cuda/*.cuh
-    include/common/*.h
-    include/rand_aes/*.h
-    include/rand_cuda/*.h
+set(LIB_SOURCE_FILES
+    lib/common/aes.cu
+    lib/common/base_rng.cu
+    lib/rand_aes/aes_rng.cu
+    lib/rand_cuda/cuda_rng.cu
+    lib/rand_cuda/cuda_rng_kernels.cu
 )
 
 add_library(rngongpu STATIC ${LIB_SOURCE_FILES})
+add_library(RNGonGPU::rngongpu ALIAS rngongpu)
+if(CMAKE_CXX_COMPILE_FEATURES)
+    target_compile_features(rngongpu PUBLIC cxx_std_17)
+else()
+    message(WARNING
+        "CMake does not know C++ compile features for ${CMAKE_CXX_COMPILER_ID} "
+        "${CMAKE_CXX_COMPILER_VERSION}; falling back to -std=c++17"
+    )
+    target_compile_options(rngongpu PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=c++17>)
+endif()
+
+if(CMAKE_CUDA_COMPILE_FEATURES)
+    target_compile_features(rngongpu PRIVATE cuda_std_17)
+else()
+    target_compile_options(rngongpu PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--std=c++17>)
+endif()
+target_compile_options(rngongpu PRIVATE
+    $<$<CONFIG:Release>:-O3 -DNDEBUG>
+    $<$<CONFIG:RelWithDebInfo>:-O3 -g -DNDEBUG>
+    $<$<CONFIG:MinSizeRel>:-Os -DNDEBUG>
+    $<$<CONFIG:Debug>:-g>
+    $<$<AND:$<CONFIG:Debug>,$<COMPILE_LANGUAGE:CUDA>>:--generate-line-info>
+    $<$<AND:$<CONFIG:RelWithDebInfo>,$<COMPILE_LANGUAGE:CUDA>>:--generate-line-info>
+)
+option(RNGonGPU_ENABLE_WARNINGS "Enable extra warnings for RNGonGPU" OFF)
+if(RNGonGPU_ENABLE_WARNINGS)
+    target_compile_options(rngongpu PRIVATE
+        $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wextra -Wpedantic>
+        $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-Wall,-Wextra,-Wpedantic>
+    )
+endif()
 
 set_target_properties(rngongpu PROPERTIES
   VERSION ${PROJECT_VERSION}
@@ -34,7 +51,7 @@ set_target_properties(rngongpu PROPERTIES
 )
 
 target_link_libraries(rngongpu PUBLIC 
-    ${GPUNTT_TARGET}
+    GPUNTT::ntt
     CUDA::curand
     OpenSSL::SSL
     OpenSSL::Crypto
@@ -43,9 +60,9 @@ target_link_libraries(rngongpu PUBLIC
 set_target_properties(rngongpu PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON
         POSITION_INDEPENDENT_CODE ON
-        CMAKE_CUDA_RESOLVE_DEVICE_SYMBOLS OFF
+        CUDA_RESOLVE_DEVICE_SYMBOLS ON
         CUDA_RUNTIME_LIBRARY Static
-        CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES}
+        CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}"
 )
 
 target_include_directories(
@@ -54,8 +71,9 @@ target_include_directories(
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/common>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/rand_aes>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/rand_cuda>
-    $<INSTALL_INTERFACE:include/RNGonGPU-${PROJECT_VERSION}>
-    PRIVATE ${OPENSSL_INCLUDE_DIR}
+    $<INSTALL_INTERFACE:include/RNGonGPU-${PROJECT_VERSION}/common>
+    $<INSTALL_INTERFACE:include/RNGonGPU-${PROJECT_VERSION}/rand_aes>
+    $<INSTALL_INTERFACE:include/RNGonGPU-${PROJECT_VERSION}/rand_cuda>
 )
 
 install(TARGETS rngongpu
@@ -65,4 +83,7 @@ install(TARGETS rngongpu
   ARCHIVE DESTINATION ${ARCHIVE_DESTINATION}
 )
 
-install(FILES ${LIB_HEADER_FILES} DESTINATION ${INCLUDES_INSTALL_DIR})
+install(
+    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
+    DESTINATION ${INCLUDES_INSTALL_DIR}
+)
