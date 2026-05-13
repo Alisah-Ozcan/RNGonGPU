@@ -1,6 +1,6 @@
-# Contributing to **RNGonGPU**
+# Contributing to **RNGonAMDGPU**
 
-Thank you for your interest in contributing to **RNGonGPU**! We greatly appreciate your time and effort. The following guidelines will help streamline the contribution process and ensure that RNGonGPU continues to grow efficiently.
+Thank you for your interest in contributing to **RNGonAMDGPU**! We greatly appreciate your time and effort. The following guidelines will help streamline the contribution process and ensure that RNGonAMDGPU continues to grow efficiently.
 
 ## How You Can Contribute
 
@@ -10,7 +10,7 @@ Thank you for your interest in contributing to **RNGonGPU**! We greatly apprecia
 - **Include Detailed Information:**
     - Steps to reproduce the bug
     - Expected behavior vs. actual behavior
-    - Your environment details (e.g., OS version, GPU model, RNGonGPU version)
+    - Your environment details (e.g., OS version, GPU model, RNGonAMDGPU version)
     - Any relevant logs, error messages, or screenshots
 
 ### 2. Suggesting New Features
@@ -39,7 +39,7 @@ Thank you for your interest in contributing to **RNGonGPU**! We greatly apprecia
 To stay informed about updates and new releases, consider starring the repository on GitHub. By starring, you will receive notifications and be able to easily keep track of changes.
 
 ## License
-By contributing to RNGonGPU, you agree that your contributions will be licensed under the same license as the project. Make sure to review the [LICENSE](LICENSE) file in the repository for details.
+By contributing to RNGonAMDGPU, you agree that your contributions will be licensed under the same license as the project. Make sure to review the [LICENSE](LICENSE) file in the repository for details.
 
 ## Thank You!
-Thank you once again for considering contributing to  **RNGonGPU**! Your contributions make a big difference, and we are grateful for your support and collaboration. If you have any questions or need guidance, feel free to reach out through GitHub issues or discussions.
+Thank you once again for considering contributing to  **RNGonAMDGPU**! Your contributions make a big difference, and we are grateful for your support and collaboration. If you have any questions or need guidance, feel free to reach out through GitHub issues or discussions.

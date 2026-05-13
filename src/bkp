@@ -1,0 +1,99 @@
+# Copyright 2025 Alişah Özcan
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+# Developer: Alişah Özcan
+
+set(LIB_SOURCE_FILES
+    lib/common/aes.hip
+    lib/common/base_rng.hip
+    lib/rand_aes/aes_rng.hip
+    lib/rand_hip/hip_rng.hip
+    lib/rand_hip/hip_rng_kernels.hip
+)
+
+add_library(rngonAMDGPU STATIC ${LIB_SOURCE_FILES})
+add_library(RNGonAMDGPU::rngonAMDGPU ALIAS rngonAMDGPU)
+
+# ----------------------------
+# C++ standard (FIXED)
+# ----------------------------
+if(CMAKE_CXX_COMPILE_FEATURES)
+    target_compile_features(rngonAMDGPU PUBLIC cxx_std_17)
+else()
+    message(WARNING
+        "CMake does not know C++ compile features for ${CMAKE_CXX_COMPILER_ID} "
+        "${CMAKE_CXX_COMPILER_VERSION}; falling back to -std=c++17"
+    )
+    target_compile_options(rngonAMDGPU PUBLIC -std=c++17)
+endif()
+
+# ----------------------------
+# ❌ REMOVED CUDA BLOCK
+# (cuda_std_17 removed)
+# ----------------------------
+
+# ----------------------------
+# Build flags
+# ----------------------------
+target_compile_options(rngonAMDGPU PRIVATE
+    $<$<CONFIG:Release>:-O3 -DNDEBUG>
+    $<$<CONFIG:RelWithDebInfo>:-O3 -g -DNDEBUG>
+    $<$<CONFIG:MinSizeRel>:-Os -DNDEBUG>
+    $<$<CONFIG:Debug>:-g>
+)
+
+# ----------------------------
+# Warnings (HIP/CXX only)
+# ----------------------------
+option(RNGonGPU_ENABLE_WARNINGS "Enable extra warnings for RNGonAMDGPU" OFF)
+
+if(RNGonGPU_ENABLE_WARNINGS)
+    target_compile_options(rngonAMDGPU PRIVATE
+        $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wextra -Wpedantic>
+    )
+endif()
+
+# ----------------------------
+# Target properties (FIXED: CUDA removed)
+# ----------------------------
+set_target_properties(rngonAMDGPU PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION 1
+    OUTPUT_NAME "rngonAMDGPU-${PROJECT_VERSION}"
+    POSITION_INDEPENDENT_CODE ON
+)
+
+# ----------------------------
+# Dependencies
+# ----------------------------
+target_link_libraries(rngonAMDGPU PUBLIC
+    GPUNTT::ntt
+    roc::rocrand
+    OpenSSL::SSL
+    OpenSSL::Crypto
+)
+
+# ----------------------------
+# Include dirs
+# ----------------------------
+target_include_directories(
+    rngonAMDGPU
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include/RNGonAMDGPU-${PROJECT_VERSION}>
+)
+
+# ----------------------------
+# Install
+# ----------------------------
+install(TARGETS rngonAMDGPU
+    EXPORT ${RNGonGPU_TARGETS_EXPORT_NAME}
+    RUNTIME DESTINATION ${RUNTIME_DESTINATION}
+    LIBRARY DESTINATION ${LIBRARY_DESTINATION}
+    ARCHIVE DESTINATION ${ARCHIVE_DESTINATION}
+)
+
+install(
+    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
+    DESTINATION ${INCLUDES_INSTALL_DIR}
+)

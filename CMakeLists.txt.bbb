@@ -59,9 +59,9 @@ set(CMAKE_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 # ─────────────────────────────────────────────────────────────
 # Build options
 # ─────────────────────────────────────────────────────────────
-option(RNGONAMDGPU_BUILD_EXAMPLES   "Build examples"   OFF)   # ← DISABLED
-option(RNGONAMDGPU_BUILD_BENCHMARKS "Build benchmarks" OFF)   # already OFF
-option(RNGONAMDGPU_BUILD_TESTS      "Build tests"      OFF)   # ← DISABLED
+option(RNGONAMDGPU_BUILD_EXAMPLES   "Build examples"   ON)
+option(RNGONAMDGPU_BUILD_BENCHMARKS "Build benchmarks" OFF) # 🔥 disable by default (CUDA risk)
+option(RNGONAMDGPU_BUILD_TESTS      "Build tests"      ON)
 
 # ─────────────────────────────────────────────────────────────
 # Third-party (HIP-only safe assumption required)
@@ -69,12 +69,12 @@ option(RNGONAMDGPU_BUILD_TESTS      "Build tests"      OFF)   # ← DISABLED
 add_subdirectory(thirdparty)
 
 # ─────────────────────────────────────────────────────────────
-# Main source (library)
+# Main source
 # ─────────────────────────────────────────────────────────────
 add_subdirectory(src)
 
 # ─────────────────────────────────────────────────────────────
-# Optional components – all off, so they are completely skipped
+# Optional components
 # ─────────────────────────────────────────────────────────────
 if(RNGONAMDGPU_BUILD_EXAMPLES)
   add_subdirectory(example)

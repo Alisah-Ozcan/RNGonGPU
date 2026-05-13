@@ -1,34 +1,33 @@
-# Copyright 2025 Alişah Özcan
-# Licensed under the Apache License, Version 2.0, see LICENSE for details.
-# SPDX-License-Identifier: Apache-2.0
-# Developer: Alişah Özcan
+# example/CMakeLists.txt
+# Only HIP executables – no CUDA
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BINARY_LOCATION}/example)
+# Ensure the output directory exists before linking
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/example")
 
-set(EXECUTABLES
-    aes_drng_example example_aes_drng.cu
-    cuda_rng_example example_cuda_rng.cu
+# AES DRNG example
+add_executable(aes_drng_example
+    example_aes_drng.hip
+)
+target_compile_features(aes_drng_example PRIVATE cxx_std_17)
+target_link_libraries(aes_drng_example PRIVATE
+    rngonAMDGPU
+    hip::host
+    roc::rocrand
+)
+set_target_properties(aes_drng_example PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/example"
 )
 
-function(add_example exe source)
-    add_executable(${exe} ${source})
-    target_link_libraries(${exe} PRIVATE rngongpu CUDA::cudart)
-    set_target_properties(${exe} PROPERTIES
-        CUDA_SEPARABLE_COMPILATION OFF
-        POSITION_INDEPENDENT_CODE ON
-        CUDA_RUNTIME_LIBRARY Static
-        CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES}
-    )
-endfunction()
-
-list(LENGTH EXECUTABLES EXECUTABLES_LENGTH)
-math(EXPR EXECUTABLES_COUNT "${EXECUTABLES_LENGTH} / 2")
-math(EXPR EXECUTABLES_COUNT_LOOP "${EXECUTABLES_COUNT} - 1")
-
-foreach(i RANGE 0 ${EXECUTABLES_COUNT_LOOP})
-    math(EXPR index1 "${i} * 2")
-    math(EXPR index2 "${i} * 2 + 1")
-    list(GET EXECUTABLES ${index1} exe)
-    list(GET EXECUTABLES ${index2} source)
-    add_example(${exe} ${source})
-endforeach()
+# HIP RNG example
+add_executable(hip_rng_example
+    example_hip_rng.hip
+)
+target_compile_features(hip_rng_example PRIVATE cxx_std_17)
+target_link_libraries(hip_rng_example PRIVATE
+    rngonAMDGPU
+    hip::host
+    roc::rocrand
+)
+set_target_properties(hip_rng_example PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/example"
+)

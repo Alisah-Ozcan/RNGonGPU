@@ -1,12 +1,12 @@
-# 🎲 RNGonGPU - A GPU Based Random Number Generation Library Using DRBG
+# 🎲 RNGonAMDGPU - A GPU Based Random Number Generation Library Using DRBG
 
-RNGonGPU is a GPU-based random number generation library engineered for secure applications using `CSPRNG`(Cryptographically Secure Pseudo-Random Number Generators). It is designed to comply with NIST’s [Recommendation for Random Number Generation Using Deterministic Random Bit Generators](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-90Ar1.pdf), ensuring that the system meets stringent security and reproducibility requirements. Unlike [cuRAND](https://docs.nvidia.com/cuda/curand/index.html)(which is primarily tailored for simulations without cryptographic security), RNGonGPU guarantees both reproducible and secure outputs by employing `AES` to secure each generated value, thereby safeguarding against potential attacks.
+RNGonAMDGPU is a GPU-based random number generation library engineered for secure applications using `CSPRNG`(Cryptographically Secure Pseudo-Random Number Generators). It is designed to comply with NIST’s [Recommendation for Random Number Generation Using Deterministic Random Bit Generators](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-90Ar1.pdf), ensuring that the system meets stringent security and reproducibility requirements. Unlike [cuRAND](https://docs.nvidia.com/cuda/hiprand/index.html)(which is primarily tailored for simulations without cryptographic security), RNGonAMDGPU guarantees both reproducible and secure outputs by employing `AES` to secure each generated value, thereby safeguarding against potential attacks.
 
 Developed using `CUDA`, the library capitalizes on the parallel processing capabilities of GPUs to deliver high-performance random number generation. Its current implementation operates in two distinct modes:
 
 - **CUDA Mode**:
-    - This mode leverages CUDA to harness the inherent parallel processing power of GPUs, utilizing the [cuRAND](https://docs.nvidia.com/cuda/curand/index.html) library to accelerate random number generation. Although cuRAND is optimized for performance in simulation contexts, it does not fully address all rigorous security requirements. (NOT Cryptographically Secure)
-    - The CUDA mode supports three [cuRAND](https://docs.nvidia.com/cuda/curand/index.html) state types: `curandStateXORWOW`, `curandStateMRG32k3a`, and `curandStatePhilox4_32_10`.
+    - This mode leverages CUDA to harness the inherent parallel processing power of GPUs, utilizing the [cuRAND](https://docs.nvidia.com/cuda/hiprand/index.html) library to accelerate random number generation. Although cuRAND is optimized for performance in simulation contexts, it does not fully address all rigorous security requirements. (NOT Cryptographically Secure)
+    - The CUDA mode supports three [cuRAND](https://docs.nvidia.com/cuda/hiprand/index.html) state types: `hiprandStateXORWOW_t`, `hiprandStateMRG32k3a_t`, and `curandStatePhilox4_32_10`.
 
 - **AES Mode**:
     - In this mode, an [AES-CTR](https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=936594) Deterministic Random Bit Generator (CTR_DRBG) architecture is employed to ensure secure random number generation in strict accordance with the [NIST SP800-90A](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-90Ar1.pdf) guidelines. `AES` functions as a block cipher operating on fixed 128-bit blocks, thereby creating a robust security framework that classifies this mode as a secure DRBG.
@@ -23,7 +23,7 @@ The library is designed to do much more than simply generate bytes. It offers a 
 
 For example, the API includes overloads for functions like `uniform_random_number`, `normal_random_number`, and `ternary_random_number` that allow users to obtain a variety of random outputs. Additionally, modular versions of these functions let you specify a modulus or an array of moduli to suit different application needs, whether it be for simulation, statistical analysis, or other specialized computational tasks. This flexibility in generating both standard and modular random numbers enhances the presentation and adaptability of the output, making the library a versatile tool in diverse computational environments.
      
-RNGonGPU is designed with extensibility in mind. Future enhancements include plans to integrate additional advanced algorithms beyond `AES` such as various `AES` variants or alternative block ciphers, to broaden the performance and security spectrum. Moreover, the roadmap envisions incorporating modular number generation capabilities supporting higher bit widths (e.g., 128, 256, and 512 bits), further enhancing the library’s versatility for applications ranging from scientific research to high-security cryptographic systems.
+RNGonAMDGPU is designed with extensibility in mind. Future enhancements include plans to integrate additional advanced algorithms beyond `AES` such as various `AES` variants or alternative block ciphers, to broaden the performance and security spectrum. Moreover, the roadmap envisions incorporating modular number generation capabilities supporting higher bit widths (e.g., 128, 256, and 512 bits), further enhancing the library’s versatility for applications ranging from scientific research to high-security cryptographic systems.
 
 ## Installation
 
@@ -40,7 +40,7 @@ RNGonGPU is designed with extensibility in mind. Future enhancements include pla
 
 ### Build & Install
 
-To build and install RNGonGPU, follow the steps below. This includes configuring the project using CMake, compiling the source code, and installing the library on your system.
+To build and install RNGonAMDGPU, follow the steps below. This includes configuring the project using CMake, compiling the source code, and installing the library on your system.
 
 <div align="center">
 
@@ -109,17 +109,17 @@ $ ./build/bin/benchmark/<...> --disable-blocking-kernel
 $ Example: ./build/bin/benchmark/aes_benchmark --disable-blocking-kernel
 ```
 
-## Using RNGonGPU in a downstream CMake project
+## Using RNGonAMDGPU in a downstream CMake project
 
-Make sure RNGonGPU is installed before integrating it into your project. The installed RNGonGPU library provides a set of config files that make it easy to integrate RNGonGPU into your own CMake project. In your CMakeLists.txt, simply add:
+Make sure RNGonAMDGPU is installed before integrating it into your project. The installed RNGonAMDGPU library provides a set of config files that make it easy to integrate RNGonAMDGPU into your own CMake project. In your CMakeLists.txt, simply add:
 
 ```cmake
 project(<your-project> LANGUAGES CXX CUDA)
 find_package(CUDAToolkit REQUIRED)
 # ...
-find_package(RNGonGPU)
+find_package(RNGonAMDGPU)
 # ...
-target_link_libraries(<your-target> (PRIVATE|PUBLIC|INTERFACE) RNGonGPU::rngongpu CUDA::cudart)
+target_link_libraries(<your-target> (PRIVATE|PUBLIC|INTERFACE) RNGonAMDGPU::rngonAMDGPU CUDA::cudart)
 # ...
 set_target_properties(<your-target> PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 # ...
