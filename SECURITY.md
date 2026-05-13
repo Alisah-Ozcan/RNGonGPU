@@ -1,13 +1,13 @@
 # Security Policy
 
 ## Overview
-RNGonGPU is a GPU-based random number generation library for secure applications. It complies with NIST’s [Recommendation for Random Number Generation Using Deterministic Random Bit Generators](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-90Ar1.pdf), ensuring stringent security and reproducibility. Unlike [cuRAND](https://docs.nvidia.com/cuda/curand/index.html), which is primarily tailored for simulations without cryptographic security, RNGonGPU guarantees both reproducible and secure outputs by employing AES to secure each generated value, thereby safeguarding against potential attacks. While every effort has been made to adhere to these rigorous standards, RNGonGPU is provided "as is" without any warranties, express or implied, and the developer(s) do not assume any liability for issues or damages arising from its use.
+RNGonAMDGPU is a GPU-based random number generation library for secure applications. It complies with NIST’s [Recommendation for Random Number Generation Using Deterministic Random Bit Generators](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-90Ar1.pdf), ensuring stringent security and reproducibility. Unlike [cuRAND](https://docs.nvidia.com/cuda/hiprand/index.html), which is primarily tailored for simulations without cryptographic security, RNGonAMDGPU guarantees both reproducible and secure outputs by employing AES to secure each generated value, thereby safeguarding against potential attacks. While every effort has been made to adhere to these rigorous standards, RNGonAMDGPU is provided "as is" without any warranties, express or implied, and the developer(s) do not assume any liability for issues or damages arising from its use.
 
 ## Vulnerability Reporting
 We value the contributions of the community in maintaining and improving the security of our library. If you discover any vulnerabilities, bugs, or any security-related issues, please report them responsibly by following the instructions below:
 
 - **Email:** alisah@sabanciuniv.edu
-- **Issue Tracker:** [GitHub Issues](https://github.com/Alisah-Ozcan/RNGonGPU/issues)
+- **Issue Tracker:** [GitHub Issues](https://github.com/Alisah-Ozcan/RNGonAMDGPU/issues)
 
 When submitting your report, please include:
 - A detailed description of the issue.

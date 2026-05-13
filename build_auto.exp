@@ -1,0 +1,21 @@
+#!/usr/bin/expect -f
+set timeout 300
+
+# Start the cmake command
+spawn bash -c {cd /shared/prerelease/home/cineca/nshukla/HPCTrainingExamples/HIPIFY/RNGonAMDGPU && cmake -B build -DCMAKE_C_COMPILER=/shared/apps/ubuntu/opt/rocm-7.2.0/bin/amdclang -DCMAKE_CXX_COMPILER=/shared/apps/ubuntu/opt/rocm-7.2.0/bin/amdclang++ -DCMAKE_HIP_COMPILER=/shared/apps/ubuntu/opt/rocm-7.2.0/bin/amdclang++ -DCMAKE_HIP_ARCHITECTURES=gfx942 -DCMAKE_BUILD_TYPE=Release -DUSE_HIP=ON -DRNGONAMDGPU_BUILD_BENCHMARKS=OFF -DRNGONAMDGPU_BUILD_EXAMPLES=OFF -DRNGONAMDGPU_BUILD_TESTS=OFF}
+
+# Wait for and respond to license prompt
+expect "Enter yes if you have read the Terms of Use"
+send "yes\r"
+expect eof
+
+# Now run make
+spawn bash -c {cd /shared/prerelease/home/cineca/nshukla/HPCTrainingExamples/HIPIFY/RNGonAMDGPU/build && make -j$(nproc)}
+
+# Wait for and respond to license prompt if it appears
+expect "Enter yes if you have read the Terms of Use" {
+    send "yes\r"
+    expect eof
+} eof {
+    puts "Make completed successfully"
+}

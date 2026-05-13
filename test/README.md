@@ -1,6 +1,6 @@
-# RNGonGPU CTR_DRBG Test Cases – AES-based
+# RNGonAMDGPU CTR_DRBG Test Cases – AES-based
 
-This archive contains only the CTR_DRBG test vectors extracted from the NIST SP 800-90A DRBG example files. These vectors are used to validate RNGonGPU’s implementation against the NIST test cases for the AES-based CTR_DRBG mechanism. All values in these files pertain exclusively to CTR_DRBG; test vectors for other DRBG mechanisms (such as Hash_DRBG, HMAC_DRBG, etc.) are not included.
+This archive contains only the CTR_DRBG test vectors extracted from the NIST SP 800-90A DRBG example files. These vectors are used to validate RNGonAMDGPU’s implementation against the NIST test cases for the AES-based CTR_DRBG mechanism. All values in these files pertain exclusively to CTR_DRBG; test vectors for other DRBG mechanisms (such as Hash_DRBG, HMAC_DRBG, etc.) are not included.
 
 ## Configuration Details
 
@@ -51,4 +51,4 @@ Each intermediate file shows the working state values indented by one tab and pr
 ## Test Environment
 
 - **Testing Framework:** Tests are executed using [googletest](https://github.com/google/googletest).
-- **Tested Application:** These test vectors are used to validate RNGonGPU’s AES-based CTR_DRBG implementation.
+- **Tested Application:** These test vectors are used to validate RNGonAMDGPU’s AES-based CTR_DRBG implementation.

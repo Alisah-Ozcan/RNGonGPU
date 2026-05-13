@@ -14,10 +14,10 @@
 #include <map>
 #include <algorithm>
 #include <iomanip>
-#include "rngongpu/rand_aes/aes_rng.cuh"
-#include "rngongpu/rand_cuda/cuda_rng.cuh"
-#include "rngongpu/common/aes.cuh"
-#include "rngongpu/common/base_rng.cuh"
+#include "rngonAMDGPU/rand_aes/aes_rng.hip"
+#include "rngonAMDGPU/rand_hip/hip_rng.hip"
+#include "rngonAMDGPU/common/aes.hip"
+#include "rngonAMDGPU/common/base_rng.hip"
 
 #ifndef PROJECT_DIR
 #define PROJECT_DIR "."
@@ -431,16 +431,16 @@ namespace rngongputestcase
         return bytes;
     }
 
-    rngongpu::SecurityLevel get_security_level(int sec_level)
+    rngonAMDGPU::SecurityLevel get_security_level(int sec_level)
     {
         switch (sec_level)
         {
             case 128:
-                return rngongpu::SecurityLevel::AES128;
+                return rngonAMDGPU::SecurityLevel::AES128;
             case 192:
-                return rngongpu::SecurityLevel::AES192;
+                return rngonAMDGPU::SecurityLevel::AES192;
             case 256:
-                return rngongpu::SecurityLevel::AES256;
+                return rngonAMDGPU::SecurityLevel::AES256;
             default:
                 throw std::invalid_argument("Invalid security level!");
         }
