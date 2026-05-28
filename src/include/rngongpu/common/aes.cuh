@@ -3,7 +3,7 @@
 // Original repository: https://github.com/cihangirtezcan/CUDA_AES
 // Paper: https://ieeexplore.ieee.org/document/9422754
 //
-// Copyright 2025 Alişah Özcan
+// Copyright 2025-2026 Alişah Özcan
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 //

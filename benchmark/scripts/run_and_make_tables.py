@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2025 Alişah Özcan
+# Copyright 2025-2026 Alişah Özcan
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
