@@ -105,9 +105,61 @@ To run benchmarks:
 $ cmake -S . -D RNGonGPU_BUILD_BENCHMARKS=ON -D CMAKE_CUDA_ARCHITECTURES=89 -B build
 $ cmake --build ./build/
 
-$ ./build/bin/benchmark/<...> --disable-blocking-kernel
-$ Example: ./build/bin/benchmark/aes_benchmark --disable-blocking-kernel
+$ ./build/bin/benchmark/aes_benchmark --sizes 16,20,24 --security-levels 128,256 --distributions uniform,normal --data-types u32,u64,f32 --iterations 20
+$ ./build/bin/benchmark/cuda_benchmark --sizes 16,20,24 --curand-states xorwow,philox --distributions uniform,normal --data-types u32,u64,f32 --iterations 20
 ```
+
+To write benchmark output to CSV while still printing it to the terminal:
+
+```bash
+$ ./build/bin/benchmark/aes_benchmark --sizes 20 --iterations 30 --output-dir benchmark/csv
+$ ./build/bin/benchmark/cuda_benchmark --sizes 20 --iterations 30 --output-dir benchmark/csv
+```
+
+The combined helper script can run both benchmark binaries, write CSV files, and build the SVG chart:
+
+```bash
+$ python3 benchmark/scripts/run_and_make_tables.py --build-dir build --csv-dir benchmark/csv --table-dir benchmark/tables --sizes 24 --iterations 30
+```
+
+Benchmark coverage is configured at runtime:
+
+```bash
+$ ./build/bin/benchmark/aes_benchmark \
+  --sizes 16,20,24 \
+  --security-levels 128,192,256 \
+  --distributions uniform,normal,ternary \
+  --data-types u32,u64,f32,f64 \
+  --stddevs 3,8 \
+  --warmup 5 \
+  --iterations 30 \
+  --csv
+```
+
+Common runtime switches:
+
+- `--sizes`: log2 output sizes.
+- `--distributions`: `uniform`, `normal`, `ternary`.
+- `--data-types`: `u32`, `u64`, `f32`, `f64`.
+- `--warmup`: warmup iterations.
+- `--iterations`: measured iterations.
+- `--csv`: CSV output.
+- `--output-dir`: also write CSV output to this directory.
+- `--output-file`: also write CSV output to this file.
+
+AES-specific switches:
+
+- `--security-levels`: `128`, `192`, `256`.
+- `--stddevs`: standard deviations for normal-distribution benchmarks.
+
+cuRAND-specific switches:
+
+- `--curand-states`: `xorwow`, `mrg32k3a`, `philox`.
+- `--stddevs`: standard deviations for normal-distribution benchmarks.
+
+If you want to run all benchmarks automatically, save the outputs to CSV files, and generate comprehensive SVG charts (comparing AES vs. cuRAND), we provide a Python helper script.
+
+**For detailed instructions on automated runs, CSV generation, and building SVG charts, please see the [Benchmark Scripts Documentation](benchmark/scripts/README.md).**
 
 ## Using RNGonGPU in a downstream CMake project
 

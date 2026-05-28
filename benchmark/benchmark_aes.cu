@@ -2,154 +2,225 @@
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 
-#include <nvbench/nvbench.cuh>
+#include <cstdlib>
 #include <iostream>
-#include <fstream>
 #include <string>
-#include <cstring>
-#include <sstream>
 #include <vector>
-#include <map>
-#include <algorithm>
-#include <iomanip>
-#include "rngongpu/rand_aes/aes_rng.cuh"
-#include "rngongpu/rand_cuda/cuda_rng.cuh"
-#include "rngongpu/common/aes.cuh"
-#include "rngongpu/common/base_rng.cuh"
 
-using namespace std;
+#include "benchmark_common.cuh"
+
+namespace bench = rngongpu::benchmark;
 using namespace rngongpu;
 
-void CTR_DRBG_with_AES_Benchmark_32bit_Data(nvbench::state& state)
+namespace
 {
-    const auto size_logN = state.get_int64("Data Size LogN");
-    const auto sev_level_int = state.get_int64("Security Level");
-
-    int entropy_input_len;
-    int nonce_len;
-    rngongpu::SecurityLevel sev_level;
-    switch (sev_level_int)
+    struct AesConfig
     {
-        case 128:
-            entropy_input_len = 128;
-            nonce_len = 64;
-            sev_level = rngongpu::SecurityLevel::AES128;
-            break;
-        case 192:
-            entropy_input_len = 192;
-            nonce_len = 128;
-            sev_level = rngongpu::SecurityLevel::AES192;
-            break;
-        case 256:
-            entropy_input_len = 256;
-            nonce_len = 128;
-            sev_level = rngongpu::SecurityLevel::AES256;
-            break;
-        default:
-            throw std::invalid_argument("Invalid security level!");
+        bench::RuntimeConfig common;
+    };
+
+    AesConfig parse_args(int argc, char** argv)
+    {
+        AesConfig config;
+        config.common = bench::parse_common_args(argc, argv, "AES CTR-DRBG");
+
+        for (int i = 1; i < argc; i++)
+        {
+            const std::string arg = argv[i];
+            auto require_value = [&](const std::string& name) -> std::string {
+                if (i + 1 >= argc)
+                {
+                    throw std::invalid_argument(name + " requires a value");
+                }
+                return argv[++i];
+            };
+
+            if (arg == "--security-levels")
+            {
+                config.common.security_levels =
+                    bench::parse_int_list(require_value(arg));
+            }
+            else if (arg == "--stddevs")
+            {
+                config.common.stddevs = bench::parse_int_list(require_value(arg));
+            }
+            else if (arg == "--help")
+            {
+                bench::print_common_help(argv[0], "AES CTR-DRBG");
+                std::cout
+                    << "AES-specific options:\n"
+                    << "  --security-levels 128,192,256\n"
+                    << "  --stddevs 3,8\n";
+                std::exit(0);
+            }
+        }
+
+        return config;
     }
 
-    std::vector<unsigned char> entropy(entropy_input_len);
-    if (1 != RAND_bytes(entropy.data(), entropy.size()))
-        throw std::runtime_error("RAND_bytes failed during reseed");
-    std::vector<unsigned char> nonce(nonce_len);
-    if (1 != RAND_bytes(nonce.data(), nonce.size()))
-        throw std::runtime_error("RAND_bytes failed during reseed");
-    std::vector<unsigned char> personalization = {};
-
-    rngongpu::RNG<rngongpu::Mode::AES> drbg(entropy, nonce, personalization,
-                                            sev_level, false);
-
-    Data64 size = 1ULL << size_logN;
-    Data32* d_results;
-    cudaMalloc(&d_results, size * sizeof(Data32));
-
-    state.collect_dram_throughput();
-
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
-    state.set_cuda_stream(nvbench::make_cuda_stream_view(stream));
-
-    state.exec(
-        [&](nvbench::launch& launch)
-        {
-            std::vector<unsigned char> additional_input = {};
-            drbg.uniform_random_number(d_results, size, additional_input,
-                                       stream);
-        });
-
-    cudaStreamSynchronize(stream);
-    cudaStreamDestroy(stream);
-}
-
-NVBENCH_BENCH(CTR_DRBG_with_AES_Benchmark_32bit_Data)
-    .add_int64_axis("Data Size LogN", {16, 17, 18, 19, 20, 21, 22, 23, 24})
-    .add_int64_axis("Security Level", {128, 192, 256})
-    .set_timeout(1);
-
-void CTR_DRBG_with_AES_Benchmark_64bit_Data(nvbench::state& state)
-{
-    const auto size_logN = state.get_int64("Data Size LogN");
-    const auto sev_level_int = state.get_int64("Security Level");
-
-    int entropy_input_len;
-    int nonce_len;
-    rngongpu::SecurityLevel sev_level;
-    switch (sev_level_int)
+    RNG<Mode::AES> make_aes_rng(int security_bits)
     {
-        case 128:
-            entropy_input_len = 128;
-            nonce_len = 64;
-            sev_level = rngongpu::SecurityLevel::AES128;
-            break;
-        case 192:
-            entropy_input_len = 192;
-            nonce_len = 128;
-            sev_level = rngongpu::SecurityLevel::AES192;
-            break;
-        case 256:
-            entropy_input_len = 256;
-            nonce_len = 128;
-            sev_level = rngongpu::SecurityLevel::AES256;
-            break;
-        default:
-            throw std::invalid_argument("Invalid security level!");
+        auto entropy =
+            bench::random_bytes(bench::entropy_bytes_for_security_level(security_bits));
+        auto nonce =
+            bench::random_bytes(bench::nonce_bytes_for_security_level(security_bits));
+        std::vector<unsigned char> personalization;
+
+        return RNG<Mode::AES>(entropy, nonce, personalization,
+                              bench::security_level_from_bits(security_bits),
+                              false);
     }
 
-    std::vector<unsigned char> entropy(entropy_input_len);
-    if (1 != RAND_bytes(entropy.data(), entropy.size()))
-        throw std::runtime_error("RAND_bytes failed during reseed");
-    std::vector<unsigned char> nonce(nonce_len);
-    if (1 != RAND_bytes(nonce.data(), nonce.size()))
-        throw std::runtime_error("RAND_bytes failed during reseed");
-    std::vector<unsigned char> personalization = {};
+    template <typename T>
+    void run_uniform(const bench::RuntimeConfig& config, bench::ReportSink& sink,
+                     int size_log,
+                     int security_bits, const std::string& type_name)
+    {
+        const auto size = Data64{1} << size_log;
+        auto drbg = make_aes_rng(security_bits);
+        bench::DeviceBuffer<T> results(size);
+        bench::CudaStream stream;
+        std::vector<unsigned char> additional_input;
 
-    rngongpu::RNG<rngongpu::Mode::AES> drbg(entropy, nonce, personalization,
-                                            sev_level, false);
+        bench::Measurement measurement;
+        measurement.backend = "aes";
+        measurement.distribution = "uniform";
+        measurement.data_type = type_name;
+        measurement.variant = "ctr_drbg";
+        measurement.size_log = size_log;
+        measurement.security_level = security_bits;
+        measurement.elements = results.count();
+        measurement.bytes = results.bytes();
 
-    Data64 size = 1ULL << size_logN;
-    Data64* d_results;
-    cudaMalloc(&d_results, size * sizeof(Data64));
+        auto result = bench::measure(
+            config, measurement, stream.get(),
+            [&]
+            {
+                drbg.uniform_random_number(results.get(), size, additional_input,
+                                           stream.get());
+            });
+        bench::print_measurement(sink, result);
+    }
 
-    state.collect_dram_throughput();
+    template <typename T>
+    void run_normal(const bench::RuntimeConfig& config, bench::ReportSink& sink,
+                    int size_log,
+                    int security_bits, int stddev,
+                    const std::string& type_name)
+    {
+        const auto size = Data64{1} << size_log;
+        auto drbg = make_aes_rng(security_bits);
+        bench::DeviceBuffer<T> results(size);
+        bench::CudaStream stream;
+        std::vector<unsigned char> additional_input;
 
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
-    state.set_cuda_stream(nvbench::make_cuda_stream_view(stream));
+        bench::Measurement measurement;
+        measurement.backend = "aes";
+        measurement.distribution = "normal";
+        measurement.data_type = type_name;
+        measurement.variant = "ctr_drbg";
+        measurement.size_log = size_log;
+        measurement.security_level = security_bits;
+        measurement.stddev = stddev;
+        measurement.elements = results.count();
+        measurement.bytes = results.bytes();
 
-    state.exec(
-        [&](nvbench::launch& launch)
+        auto result = bench::measure(
+            config, measurement, stream.get(),
+            [&]
+            {
+                drbg.normal_random_number(static_cast<T>(stddev), results.get(), size,
+                                          additional_input, stream.get());
+            });
+        bench::print_measurement(sink, result);
+    }
+
+    template <typename T>
+    void run_ternary(const bench::RuntimeConfig& config, bench::ReportSink& sink,
+                     int size_log,
+                     int security_bits, const std::string& type_name)
+    {
+        const auto size = Data64{1} << size_log;
+        auto drbg = make_aes_rng(security_bits);
+        bench::DeviceBuffer<T> results(size);
+        bench::CudaStream stream;
+        std::vector<unsigned char> additional_input;
+
+        bench::Measurement measurement;
+        measurement.backend = "aes";
+        measurement.distribution = "ternary";
+        measurement.data_type = type_name;
+        measurement.variant = "ctr_drbg";
+        measurement.size_log = size_log;
+        measurement.security_level = security_bits;
+        measurement.elements = results.count();
+        measurement.bytes = results.bytes();
+
+        auto result = bench::measure(
+            config, measurement, stream.get(),
+            [&]
+            {
+                drbg.ternary_random_number(results.get(), size, additional_input,
+                                           stream.get());
+            });
+        bench::print_measurement(sink, result);
+    }
+} // namespace
+
+int main(int argc, char** argv)
+{
+    try
+    {
+        const auto config = parse_args(argc, argv).common;
+        if (config.help)
         {
-            std::vector<unsigned char> additional_input = {};
-            drbg.uniform_random_number(d_results, size, additional_input,
-                                       stream);
-        });
+            return 0;
+        }
+        bench::ReportSink sink(config, "aes_benchmark.csv");
+        bench::print_header(sink);
 
-    cudaStreamSynchronize(stream);
-    cudaStreamDestroy(stream);
+        for (const auto size_log : config.size_logs)
+        {
+            for (const auto security_bits : config.security_levels)
+            {
+                if (bench::contains(config.distributions, "uniform"))
+                {
+                    if (bench::contains(config.data_types, "u32"))
+                        run_uniform<Data32>(config, sink, size_log, security_bits, "u32");
+                    if (bench::contains(config.data_types, "u64"))
+                        run_uniform<Data64>(config, sink, size_log, security_bits, "u64");
+                }
+
+                if (bench::contains(config.distributions, "normal"))
+                {
+                    for (const auto stddev : config.stddevs)
+                    {
+                        if (bench::contains(config.data_types, "f32"))
+                            run_normal<f32>(config, sink, size_log, security_bits,
+                                            stddev, "f32");
+                        if (bench::contains(config.data_types, "f64"))
+                            run_normal<f64>(config, sink, size_log, security_bits,
+                                            stddev, "f64");
+                    }
+                }
+
+                if (bench::contains(config.distributions, "ternary"))
+                {
+                    if (bench::contains(config.data_types, "u32"))
+                        run_ternary<Data32>(config, sink, size_log, security_bits,
+                                            "u32");
+                    if (bench::contains(config.data_types, "u64"))
+                        run_ternary<Data64>(config, sink, size_log, security_bits,
+                                            "u64");
+                }
+            }
+        }
+    }
+    catch (const std::exception& error)
+    {
+        std::cerr << "aes_benchmark error: " << error.what() << '\n';
+        return 1;
+    }
+
+    return 0;
 }
-
-NVBENCH_BENCH(CTR_DRBG_with_AES_Benchmark_64bit_Data)
-    .add_int64_axis("Data Size LogN", {16, 17, 18, 19, 20, 21, 22, 23, 24})
-    .add_int64_axis("Security Level", {128, 192, 256})
-    .set_timeout(1);
