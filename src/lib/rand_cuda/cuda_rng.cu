@@ -19,8 +19,6 @@ namespace rngongpu
                                cudaDevAttrMultiProcessorCount, device);
         RNGONGPU_CUDA_CHECK(cudaGetLastError());
 
-        features.num_blocks_ = features.num_blocks_ * 3;
-
         features.num_states_ =
             features.thread_per_block_ * features.num_blocks_;
         features.seed_ = seed;
