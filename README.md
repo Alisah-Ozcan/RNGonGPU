@@ -4,9 +4,9 @@ RNGonAMDGPU is a GPU-based random number generation library engineered for secur
 
 Developed using `CUDA`, the library capitalizes on the parallel processing capabilities of GPUs to deliver high-performance random number generation. Its current implementation operates in two distinct modes:
 
-- **CUDA Mode**:
-    - This mode leverages CUDA to harness the inherent parallel processing power of GPUs, utilizing the [cuRAND](https://docs.nvidia.com/cuda/hiprand/index.html) library to accelerate random number generation. Although cuRAND is optimized for performance in simulation contexts, it does not fully address all rigorous security requirements. (NOT Cryptographically Secure)
-    - The CUDA mode supports three [cuRAND](https://docs.nvidia.com/cuda/hiprand/index.html) state types: `hiprandStateXORWOW_t`, `hiprandStateMRG32k3a_t`, and `curandStatePhilox4_32_10`.
+- **HIP Mode**:
+    - This mode leverages HIP to harness the inherent parallel processing power of GPUs, utilizing the [hipRAND](https://github.com/ROCm/hipRAND) library to accelerate random number generation. Although cuRAND is optimized for performance in simulation contexts, it does not fully address all rigorous security requirements. (NOT Cryptographically Secure)
+    - The HIP mode supports three [hipRAND](https://github.com/ROCm/hipRAND) state types: `hiprandStateXORWOW_t`, `hiprandStateMRG32k3a_t`, and `curandStatePhilox4_32_10`.
 
 - **AES Mode**:
     - In this mode, an [AES-CTR](https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=936594) Deterministic Random Bit Generator (CTR_DRBG) architecture is employed to ensure secure random number generation in strict accordance with the [NIST SP800-90A](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-90Ar1.pdf) guidelines. `AES` functions as a block cipher operating on fixed 128-bit blocks, thereby creating a robust security framework that classifies this mode as a secure DRBG.
@@ -42,51 +42,22 @@ RNGonAMDGPU is designed with extensibility in mind. Future enhancements include 
 
 To build and install RNGonAMDGPU, follow the steps below. This includes configuring the project using CMake, compiling the source code, and installing the library on your system.
 
-<div align="center">
-
-| GPU Architecture | Compute Capability (CMAKE_CUDA_ARCHITECTURES Value) |
-|:----------------:|:---------------------------------------------------:|
-| Volta  | 70, 72 |
-| Turing | 75 |
-| Ampere | 80, 86 |
-| Ada	 | 89, 90 |
-
-</div>
-
 ```bash
-$ cmake -S . -D CMAKE_CUDA_ARCHITECTURES=89 -B build
-$ cmake --build ./build/
+$ cd thirdparty/GPU-NTT/
+$ cmake -B build   -DCMAKE_CXX_COMPILER=amdclang++   -DCMAKE_HIP_COMPILER=amdclang++    -DCMAKE_HIP_ARCHITECTURES=gfx942   -DCMAKE_BUILD_TYPE=Release   -DCMAKE_CXX_FLAGS="-D__HIP_PLATFORM_AMD__ -munsafe-fp-atomics --offload-arch=gfx942"
 $ sudo cmake --install build
+$ cmake --build build --parallel
 ```
 
-### Build Types
+### Build RNGonAMDGPU
 
 This project builds as `Release` by default. Choose a different build type with the CMake generator you use:
-
-- Single-config generators (Ninja, Makefiles): set `CMAKE_BUILD_TYPE`.
 ```bash
-$ cmake -S . -B build-debug -D CMAKE_BUILD_TYPE=Debug -D CMAKE_CUDA_ARCHITECTURES=89
-$ cmake --build build-debug
+$ cd RNGonAMDGPU
+$ cmake -B build   -DCMAKE_C_COMPILER=/shared/apps/ubuntu/opt/rocm-7.2.0/bin/amdclang   -DCMAKE_CXX_COMPILER=/shared/apps/ubuntu/opt/rocm-7.2.0/bin/amdclang++   -DCMAKE_HIP_COMPILER=/shared/apps/ubuntu/opt/rocm-7.2.0/bin/amdclang++   -DCMAKE_HIP_ARCHITECTURES=gfx942   -DCMAKE_BUILD_TYPE=Release   -DUSE_HIP=ON   -DUSE_CUDA=OFF   -DHIP_PLATFORM=amd   -DRNGonGPU_USE_GPUNTT=ON   -DRNGonGPU_USE_INTERNAL_GPUNTT=ON   -DCMAKE_CXX_FLAGS="-fgpu-rdc --offload-arch=gfx942 -D__HIP_PLATFORM_AMD__"   -DCMAKE_HIP_FLAGS="-fgpu-rdc --offload-arch=gfx942"
+$ cmake --build build --parallel
 ```
 
-- Multi-config generators (Visual Studio, Xcode, Ninja Multi-Config): pick the configuration at build/install time.
-```bash
-$ cmake -S . -B build -D CMAKE_CUDA_ARCHITECTURES=89
-$ cmake --build build --config Debug
-$ sudo cmake --install build --config Release
-```
-
-## Examples
-
-To run examples:
-
-```bash
-$ cmake -S . -D RNGonGPU_BUILD_EXAMPLES=ON -D CMAKE_CUDA_ARCHITECTURES=89 -B build
-$ cmake --build ./build/
-
-$ ./build/bin/example/<...>
-$ Example: ./build/bin/example/aes_drng_example
-```
 
 ## [Tests](/test/README.md)
 
