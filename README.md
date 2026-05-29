@@ -32,7 +32,9 @@ RNGonAMDGPU is designed with extensibility in mind. Future enhancements include 
 - [CMake](https://cmake.org/download/) >=3.26.4
 - [GCC](https://gcc.gnu.org/)
 - [OpenSSL](https://www.openssl.org/) >= 1.1.0
-- [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) >=11.4
+- rocm/7.2.0
+- amdclang/22.0.0-7.2.0
+- hipblaslt/patched 
 
 ### Third-Party Dependencies
 - [GPU-NTT](https://github.com/Alisah-Ozcan/GPU-NTT) (Just for arithmetic operations)
