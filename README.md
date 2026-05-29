@@ -45,10 +45,11 @@ RNGonAMDGPU is designed with extensibility in mind. Future enhancements include 
 To build and install RNGonAMDGPU, follow the steps below. This includes configuring the project using CMake, compiling the source code, and installing the library on your system.
 
 ```bash
-$ cd thirdparty/GPU-NTT/
-$ cmake -B build   -DCMAKE_CXX_COMPILER=amdclang++   -DCMAKE_HIP_COMPILER=amdclang++    -DCMAKE_HIP_ARCHITECTURES=gfx942   -DCMAKE_BUILD_TYPE=Release   -DCMAKE_CXX_FLAGS="-D__HIP_PLATFORM_AMD__ -munsafe-fp-atomics --offload-arch=gfx942"
-$ sudo cmake --install build
-$ cmake --build build --parallel
+cd thirdparty/GPU-NTT/
+
+cmake -B build   -DCMAKE_CXX_COMPILER=amdclang++   -DCMAKE_HIP_COMPILER=amdclang++    -DCMAKE_HIP_ARCHITECTURES=gfx942   -DCMAKE_BUILD_TYPE=Release   -DCMAKE_CXX_FLAGS="-D__HIP_PLATFORM_AMD__ -munsafe-fp-atomics --offload-arch=gfx942"
+
+cmake --build build --parallel
 ```
 
 ### Build RNGonAMDGPU
