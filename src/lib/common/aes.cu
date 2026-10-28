@@ -40,7 +40,8 @@ namespace rngongpu
     }
 
     // Key expansion from given key set, populate rk[44]
-    __host__ void keyExpansion(std::vector<unsigned char> key, Data32* rk)
+    __host__ void keyExpansion(std::vector<unsigned char> key, Data32* rk,
+                               cudaStream_t stream)
     {   
         std::vector<Data32> key_cpu(AES_128_KEY_SIZE_INT);
         Data32 rk0, rk1, rk2, rk3;
@@ -67,10 +68,11 @@ namespace rngongpu
             key_cpu[roundCount * 4 + 6] = rk2;
             key_cpu[roundCount * 4 + 7] = rk3;
         }
-        cudaMemcpy(rk, key_cpu.data(), AES_128_KEY_SIZE_INT * sizeof(Data32), cudaMemcpyHostToDevice);
+        cudaMemcpyAsync(rk, key_cpu.data(), AES_128_KEY_SIZE_INT * sizeof(Data32), cudaMemcpyHostToDevice, stream);
     }
 
-    __host__ void keyExpansion192(std::vector<unsigned char> key, Data32* rk)
+    __host__ void keyExpansion192(std::vector<unsigned char> key, Data32* rk,
+                                  cudaStream_t stream)
     {   
         std::vector<Data32> key_cpu(AES_192_KEY_SIZE_INT);
         Data32 rk0, rk1, rk2, rk3, rk4, rk5;
@@ -110,10 +112,11 @@ namespace rngongpu
             key_cpu[roundCount * 6 + 10] = rk4;
             key_cpu[roundCount * 6 + 11] = rk5;
         }
-        cudaMemcpy(rk, key_cpu.data(), AES_192_KEY_SIZE_INT * sizeof(Data32), cudaMemcpyHostToDevice);
+        cudaMemcpyAsync(rk, key_cpu.data(), AES_192_KEY_SIZE_INT * sizeof(Data32), cudaMemcpyHostToDevice, stream);
     }
 
-    __host__ void keyExpansion256(std::vector<unsigned char> key, Data32* rk)
+    __host__ void keyExpansion256(std::vector<unsigned char> key, Data32* rk,
+                                  cudaStream_t stream)
     {   
         std::vector<Data32> key_cpu(AES_256_KEY_SIZE_INT);
         Data32 rk0, rk1, rk2, rk3, rk4, rk5, rk6, rk7;
@@ -162,7 +165,7 @@ namespace rngongpu
             key_cpu[roundCount * 8 + 14] = rk6;
             key_cpu[roundCount * 8 + 15] = rk7;
         }
-        cudaMemcpy(rk, key_cpu.data(), AES_256_KEY_SIZE_INT * sizeof(Data32), cudaMemcpyHostToDevice);
+        cudaMemcpyAsync(rk, key_cpu.data(), AES_256_KEY_SIZE_INT * sizeof(Data32), cudaMemcpyHostToDevice, stream);
     }
 
     __global__ void

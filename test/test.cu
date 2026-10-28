@@ -278,6 +278,61 @@ INSTANTIATE_TEST_SUITE_P(
     RNGONGPU_TEST3, RNGONGPU_TEST_DRBGVECTORS_NO_RESEED,
     ::testing::Values("drbgvectors_no_reseed/CTR_DRBG.txt"));
 
+// The same seed gives the same numbers on every kind of stream: the round keys
+// of a request are copied on its stream, after the kernels of the previous
+// request.
+class RNGONGPU_TEST_STREAMS
+    : public ::testing::TestWithParam<rngongpu::SecurityLevel>
+{
+  protected:
+    std::vector<Data64> generate(cudaStream_t stream)
+    {
+        const Data64 size = 1 << 21;
+        const int requests = 4;
+        std::vector<unsigned char> entropy(32, 0x11);
+        std::vector<unsigned char> nonce(16, 0x22);
+        std::vector<unsigned char> personalization = {0x33};
+        rngongpu::RNG<rngongpu::Mode::AES> drbg(entropy, nonce,
+                                                personalization, GetParam(),
+                                                false);
+
+        Data64* d_results;
+        cudaMalloc(&d_results, size * sizeof(Data64));
+        std::vector<Data64> results(size * requests);
+        for (int i = 0; i < requests; i++)
+        {
+            drbg.uniform_random_number(d_results, size, {}, stream);
+            cudaStreamSynchronize(stream);
+            cudaMemcpy(results.data() + i * size, d_results,
+                       size * sizeof(Data64), cudaMemcpyDeviceToHost);
+        }
+        cudaFree(d_results);
+        return results;
+    }
+};
+
+TEST_P(RNGONGPU_TEST_STREAMS, SAME_NUMBERS_ON_EVERY_STREAM)
+{
+    cudaStream_t blocking, non_blocking;
+    cudaStreamCreate(&blocking);
+    cudaStreamCreateWithFlags(&non_blocking, cudaStreamNonBlocking);
+
+    std::vector<Data64> reference = generate(cudaStreamDefault);
+    for (int i = 0; i < 5; i++)
+    {
+        EXPECT_EQ(generate(blocking), reference);
+        EXPECT_EQ(generate(non_blocking), reference);
+    }
+
+    cudaStreamDestroy(blocking);
+    cudaStreamDestroy(non_blocking);
+}
+
+INSTANTIATE_TEST_SUITE_P(RNGONGPU_TEST4, RNGONGPU_TEST_STREAMS,
+                         ::testing::Values(rngongpu::SecurityLevel::AES128,
+                                           rngongpu::SecurityLevel::AES192,
+                                           rngongpu::SecurityLevel::AES256));
+
 int main(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);

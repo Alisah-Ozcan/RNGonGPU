@@ -321,13 +321,13 @@ namespace rngongpu
         switch (features.security_level_)
         {
             case SecurityLevel::AES128:
-                keyExpansion(features.key_, features.round_keys_);
+                keyExpansion(features.key_, features.round_keys_, stream);
                 break;
             case SecurityLevel::AES192:
-                keyExpansion192(features.key_, features.round_keys_);
+                keyExpansion192(features.key_, features.round_keys_, stream);
                 break;
             case SecurityLevel::AES256:
-                keyExpansion256(features.key_, features.round_keys_);
+                keyExpansion256(features.key_, features.round_keys_, stream);
                 break;
             default:
                 throw std::runtime_error("Error: Unsupported security "
@@ -907,7 +907,7 @@ namespace rngongpu
         (*this).key_ = std::vector<unsigned char>((*this).key_len_, 0);
         (*this).nonce_ = std::vector<unsigned char>((*this).nonce_len_, 0);
 
-        RNGTraits<Mode::AES>::update(*this, seed_material);
+        RNGTraits<Mode::AES>::update(*this, seed_material, stream);
 
         std::vector<unsigned char> nonce_rev = (*this).nonce_;
         std::reverse(nonce_rev.begin(), nonce_rev.end());

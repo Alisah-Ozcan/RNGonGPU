@@ -584,14 +584,18 @@ namespace rngongpu
                                                 Data32 n2Power);
     __device__ Data32 arithmeticRightShiftBytePerm(Data32 x, Data32 n);
 
-    // Key expansion from given key set, populate rk[44]
-    __host__ void keyExpansion(std::vector<unsigned char> key, Data32* rk);
+    // Key expansion from given key set, populate rk[44]. The round keys are
+    // copied on stream, after the kernels that use the previous ones.
+    __host__ void keyExpansion(std::vector<unsigned char> key, Data32* rk,
+                               cudaStream_t stream = cudaStreamDefault);
 
     // Key expansion from given key set, populate rk[52]
-    __host__ void keyExpansion192(std::vector<unsigned char> key, Data32* rk);
+    __host__ void keyExpansion192(std::vector<unsigned char> key, Data32* rk,
+                                  cudaStream_t stream = cudaStreamDefault);
 
     // Key expansion from given key set, populate rk[52]
-    __host__ void keyExpansion256(std::vector<unsigned char> key, Data32* rk);
+    __host__ void keyExpansion256(std::vector<unsigned char> key, Data32* rk,
+                                  cudaStream_t stream = cudaStreamDefault);
 
     __global__ void
     counterWithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBoxCihangir(
