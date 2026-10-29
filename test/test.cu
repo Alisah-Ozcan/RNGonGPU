@@ -400,6 +400,72 @@ INSTANTIATE_TEST_SUITE_P(RNGONGPU_TEST5, RNGONGPU_TEST_CONCURRENT_STREAMS,
                                            rngongpu::SecurityLevel::AES192,
                                            rngongpu::SecurityLevel::AES256));
 
+// A large request is the AES-CTR key stream E(K, V + 1), E(K, V + 2), ... of
+// SP 800-90A in this order, so the numbers do not depend on the number of
+// multiprocessors of the GPU or on the launch size.
+class RNGONGPU_TEST_LARGE_REQUEST
+    : public ::testing::TestWithParam<rngongpu::SecurityLevel>
+{
+  protected:
+    static const EVP_CIPHER* cipher()
+    {
+        switch (GetParam())
+        {
+            case rngongpu::SecurityLevel::AES128:
+                return EVP_aes_128_ctr();
+            case rngongpu::SecurityLevel::AES192:
+                return EVP_aes_192_ctr();
+            default:
+                return EVP_aes_256_ctr();
+        }
+    }
+};
+
+TEST_P(RNGONGPU_TEST_LARGE_REQUEST, CTR_KEY_STREAM_ORDER)
+{
+    std::vector<unsigned char> entropy(32, 0x77);
+    std::vector<unsigned char> nonce(16, 0x88);
+    std::vector<unsigned char> personalization = {0x99};
+    rngongpu::RNG<rngongpu::Mode::AES> drbg(entropy, nonce, personalization,
+                                            GetParam(), false);
+
+    for (Data64 size : {Data64(1) << 10, Data64(1) << 21, Data64(3) << 19})
+    {
+        std::vector<unsigned char> key = drbg.get_key();
+        std::vector<unsigned char> v = drbg.get_nonce();
+        for (int i = 15; i >= 0 && ++v[i] == 0; i--)
+        {
+        }
+
+        Data64* d_results;
+        cudaMalloc(&d_results, size * sizeof(Data64));
+        drbg.uniform_random_number(d_results, size, {});
+        std::vector<unsigned char> results(size * sizeof(Data64));
+        cudaMemcpy(results.data(), d_results, results.size(),
+                   cudaMemcpyDeviceToHost);
+        cudaFree(d_results);
+
+        std::vector<unsigned char> zeros(results.size(), 0);
+        std::vector<unsigned char> expected(results.size());
+        EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+        int len = 0;
+        ASSERT_EQ(EVP_EncryptInit_ex(ctx, cipher(), nullptr, key.data(),
+                                     v.data()),
+                  1);
+        ASSERT_EQ(EVP_EncryptUpdate(ctx, expected.data(), &len, zeros.data(),
+                                    static_cast<int>(zeros.size())),
+                  1);
+        EVP_CIPHER_CTX_free(ctx);
+
+        EXPECT_EQ(results, expected) << "size " << size;
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(RNGONGPU_TEST6, RNGONGPU_TEST_LARGE_REQUEST,
+                         ::testing::Values(rngongpu::SecurityLevel::AES128,
+                                           rngongpu::SecurityLevel::AES192,
+                                           rngongpu::SecurityLevel::AES256));
+
 int main(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);

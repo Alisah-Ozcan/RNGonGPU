@@ -206,7 +206,7 @@ namespace rngongpu
         Data64 threadRangeStart = pt2Init;
         threadRangeStart = threadRangeStart << 32;
         threadRangeStart ^= pt3Init;
-        threadRangeStart += threadIndex * threadRange;
+        threadRangeStart += threadIndex;
         pt2Init = threadRangeStart >> 32;
         pt3Init = threadRangeStart & 0xFFFFFFFF;
         // Overflow
@@ -344,12 +344,14 @@ namespace rngongpu
                                [((t2 & 0xFF) % 4)]) ^
                  rkS[43];
 
-            // Overflow
-            if (pt3Init == MAX_U32)
-            {
-                pt2Init++;
-            }
-            pt3Init++;
+            // Next counter of this thread: the output of round rangeCount and
+            // thread threadIndex is block rangeCount * totalThreadCount +
+            // threadIndex, so the numbers do not depend on the launch size.
+            Data64 counter = pt2Init;
+            counter = (counter << 32) ^ pt3Init;
+            counter += totalThreadCount;
+            pt2Init = counter >> 32;
+            pt3Init = counter & 0xFFFFFFFF;
 
             Data64 res_num1, res_num2;
 
@@ -424,7 +426,7 @@ namespace rngongpu
         Data64 threadRangeStart = pt2Init;
         threadRangeStart = threadRangeStart << 32;
         threadRangeStart ^= pt3Init;
-        threadRangeStart += (Data64) threadIndex * threadRange;
+        threadRangeStart += (Data64) threadIndex;
         pt2Init = threadRangeStart >> 32;
         pt3Init = threadRangeStart & 0xFFFFFFFF;
         // Overflow
@@ -519,14 +521,14 @@ namespace rngongpu
                  (t4S[(t1 >> 8) & 0xff][warpThreadIndexSBox] & 0x0000FF00) ^
                  (t4S[(t2) &0xFF][warpThreadIndexSBox] & 0x000000FF) ^ rkS[51];
 
-            // Overflow
-            if (pt3Init == MAX_U32)
-            {
-                pt2Init++;
-            }
-
-            // Create key as 32 bit unsigned integers
-            pt3Init++;
+            // Next counter of this thread: the output of round rangeCount and
+            // thread threadIndex is block rangeCount * totalThreadCount +
+            // threadIndex, so the numbers do not depend on the launch size.
+            Data64 counter = pt2Init;
+            counter = (counter << 32) ^ pt3Init;
+            counter += totalThreadCount;
+            pt2Init = counter >> 32;
+            pt3Init = counter & 0xFFFFFFFF;
             Data64 res_num1, res_num2;
 
             res_num1 = s0;
@@ -600,7 +602,7 @@ namespace rngongpu
         Data64 threadRangeStart = pt2Init;
         threadRangeStart = threadRangeStart << 32;
         threadRangeStart ^= pt3Init;
-        threadRangeStart += (Data64) threadIndex * threadRange;
+        threadRangeStart += (Data64) threadIndex;
         pt2Init = threadRangeStart >> 32;
         pt3Init = threadRangeStart & 0xFFFFFFFF;
         // Overflow
@@ -695,14 +697,14 @@ namespace rngongpu
                  (t4S[(t1 >> 8) & 0xff][warpThreadIndexSBox] & 0x0000FF00) ^
                  (t4S[(t2) &0xFF][warpThreadIndexSBox] & 0x000000FF) ^ rkS[59];
 
-            // Overflow
-            if (pt3Init == MAX_U32)
-            {
-                pt2Init++;
-            }
-
-            // Create key as 32 bit unsigned integers
-            pt3Init++;
+            // Next counter of this thread: the output of round rangeCount and
+            // thread threadIndex is block rangeCount * totalThreadCount +
+            // threadIndex, so the numbers do not depend on the launch size.
+            Data64 counter = pt2Init;
+            counter = (counter << 32) ^ pt3Init;
+            counter += totalThreadCount;
+            pt2Init = counter >> 32;
+            pt3Init = counter & 0xFFFFFFFF;
 
             Data64 res_num1, res_num2;
 

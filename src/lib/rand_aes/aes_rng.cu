@@ -377,16 +377,22 @@ namespace rngongpu
         Data32 num_u64 =
             static_cast<Data32>((requested_number_of_bytes + 7) / 8);
 
-        Data32 threadCount = features.num_blocks_ * features.thread_per_block_;
-        double threadCount_d = static_cast<double>(num_u64);
-        double threadRange = threadCount_d / (threadCount * 2);
-        Data64 range = ceil(threadRange);
+        // Each thread encrypts one counter block (two outputs) per round. Small
+        // requests use only as many blocks as they need; the numbers do not
+        // depend on the launch size.
+        Data64 num_counter_blocks = (static_cast<Data64>(num_u64) + 1) / 2;
+        int num_blocks = static_cast<int>(std::min<Data64>(
+            features.num_blocks_,
+            (num_counter_blocks + features.thread_per_block_ - 1) /
+                features.thread_per_block_));
+        Data32 threadCount = num_blocks * features.thread_per_block_;
+        Data64 range = (num_counter_blocks + threadCount - 1) / threadCount;
 
         switch (features.security_level_)
         {
             case SecurityLevel::AES128:
                 counterWithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBoxCihangir<<<
-                    features.num_blocks_, features.thread_per_block_, 0,
+                    num_blocks, features.thread_per_block_, 0,
                     stream>>>(nonce, round_keys,
                               features.t0_, features.t4_, range,
                               features.SAES_d_, threadCount, pointer, num_u64);
@@ -394,7 +400,7 @@ namespace rngongpu
                 break;
             case SecurityLevel::AES192:
                 counter192WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox<<<
-                    features.num_blocks_, features.thread_per_block_, 0,
+                    num_blocks, features.thread_per_block_, 0,
                     stream>>>(nonce, round_keys,
                               features.t0_, features.t4_, range, threadCount,
                               pointer, num_u64);
@@ -402,7 +408,7 @@ namespace rngongpu
                 break;
             case SecurityLevel::AES256:
                 counter256WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox<<<
-                    features.num_blocks_, features.thread_per_block_, 0,
+                    num_blocks, features.thread_per_block_, 0,
                     stream>>>(nonce, round_keys,
                               features.t0_, features.t4_, range, threadCount,
                               pointer, num_u64);
