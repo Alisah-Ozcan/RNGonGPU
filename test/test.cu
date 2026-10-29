@@ -278,9 +278,8 @@ INSTANTIATE_TEST_SUITE_P(
     RNGONGPU_TEST3, RNGONGPU_TEST_DRBGVECTORS_NO_RESEED,
     ::testing::Values("drbgvectors_no_reseed/CTR_DRBG.txt"));
 
-// The same seed gives the same numbers on every kind of stream: the round keys
-// of a request are copied on its stream, after the kernels of the previous
-// request.
+// The same seed gives the same numbers on every kind of stream: each request
+// copies its round keys and counter on its own stream.
 class RNGONGPU_TEST_STREAMS
     : public ::testing::TestWithParam<rngongpu::SecurityLevel>
 {
@@ -329,6 +328,74 @@ TEST_P(RNGONGPU_TEST_STREAMS, SAME_NUMBERS_ON_EVERY_STREAM)
 }
 
 INSTANTIATE_TEST_SUITE_P(RNGONGPU_TEST4, RNGONGPU_TEST_STREAMS,
+                         ::testing::Values(rngongpu::SecurityLevel::AES128,
+                                           rngongpu::SecurityLevel::AES192,
+                                           rngongpu::SecurityLevel::AES256));
+
+// Requests issued on several streams without waiting in between give the same
+// numbers as the same requests issued one after another on one stream: a
+// request does not see the device state of a later one, and temporary buffers
+// of different streams do not overlap.
+class RNGONGPU_TEST_CONCURRENT_STREAMS
+    : public ::testing::TestWithParam<rngongpu::SecurityLevel>
+{
+  protected:
+    static constexpr Data64 size = 1 << 20;
+    static constexpr int requests = 16;
+
+    std::vector<Data64> generate(const std::vector<cudaStream_t>& streams)
+    {
+        std::vector<unsigned char> entropy(32, 0x44);
+        std::vector<unsigned char> nonce(16, 0x55);
+        std::vector<unsigned char> personalization = {0x66};
+        rngongpu::RNG<rngongpu::Mode::AES> drbg(entropy, nonce,
+                                                personalization, GetParam(),
+                                                false);
+
+        Data64* d_results;
+        cudaMalloc(&d_results, requests * size * sizeof(Data64));
+        for (int i = 0; i < requests; i++)
+        {
+            cudaStream_t stream = streams[i % streams.size()];
+            if (i % 2 == 0)
+            {
+                drbg.uniform_random_number(d_results + i * size, size, {},
+                                           stream);
+            }
+            else
+            {
+                drbg.normal_random_number(
+                    3.2, reinterpret_cast<f64*>(d_results + i * size), size,
+                    {}, stream);
+            }
+        }
+        for (cudaStream_t stream : streams)
+            cudaStreamSynchronize(stream);
+
+        std::vector<Data64> results(requests * size);
+        cudaMemcpy(results.data(), d_results,
+                   requests * size * sizeof(Data64), cudaMemcpyDeviceToHost);
+        cudaFree(d_results);
+        return results;
+    }
+};
+
+TEST_P(RNGONGPU_TEST_CONCURRENT_STREAMS, SAME_NUMBERS_AS_ONE_STREAM)
+{
+    std::vector<Data64> reference = generate({cudaStreamDefault});
+
+    std::vector<cudaStream_t> streams(4);
+    for (cudaStream_t& stream : streams)
+        cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
+    for (int i = 0; i < 5; i++)
+    {
+        EXPECT_EQ(generate(streams), reference);
+    }
+    for (cudaStream_t stream : streams)
+        cudaStreamDestroy(stream);
+}
+
+INSTANTIATE_TEST_SUITE_P(RNGONGPU_TEST5, RNGONGPU_TEST_CONCURRENT_STREAMS,
                          ::testing::Values(rngongpu::SecurityLevel::AES128,
                                            rngongpu::SecurityLevel::AES192,
                                            rngongpu::SecurityLevel::AES256));

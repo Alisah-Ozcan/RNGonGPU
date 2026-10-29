@@ -62,8 +62,12 @@ namespace rngongpu
 
         Data8* SAES_d_;
         Data32* rcon_;
-        Data32* round_keys_;
-        Data32* d_nonce_;
+
+        // Round keys and counter are copied for each request on the stream of
+        // the request, and temporary buffers are allocated stream-ordered from
+        // this pool, so requests on different streams never share device
+        // state and no request has to wait for the GPU.
+        cudaMemPool_t scratch_pool_;
 
         const int thread_per_block_ = 1024;
         int num_blocks_;
@@ -278,6 +282,17 @@ namespace rngongpu
             std::vector<unsigned char> additional_input, cudaStream_t stream);
     };
 
+    /**
+     * @brief CTR_DRBG (NIST SP 800-90A) with AES-CTR generation on the GPU.
+     *
+     * Generation functions are asynchronous with respect to the host, like
+     * other CUDA work: they return once the work is enqueued on @p stream, and
+     * the numbers are ready in stream order. Synchronize the stream (or wait
+     * on an event) before reading the output from the host or from another
+     * stream. One object may be used from several threads and streams at the
+     * same time; requests are serialized on the host and each one gets its
+     * own counter range.
+     */
     template <> class RNG<Mode::AES> : public ModeFeature<Mode::AES>
     {
       public:

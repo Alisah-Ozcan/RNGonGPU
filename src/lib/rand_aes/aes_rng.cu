@@ -57,29 +57,18 @@ namespace rngongpu
         features.key_ = std::vector<unsigned char>(features.key_len_, 0);
         features.nonce_ = std::vector<unsigned char>(features.nonce_len_, 0);
 
-        switch (features.security_level_)
-        {
-            case SecurityLevel::AES128:
-                cudaMalloc(&(features.round_keys_),
-                                  AES_128_KEY_SIZE_INT * sizeof(Data32));
-                RNGONGPU_CUDA_CHECK(cudaGetLastError());
-                break;
-            case SecurityLevel::AES192:
-                cudaMalloc(&(features.round_keys_),
-                                  AES_192_KEY_SIZE_INT * sizeof(Data32));
-                RNGONGPU_CUDA_CHECK(cudaGetLastError());
-                break;
-            case SecurityLevel::AES256:
-                cudaMalloc(&(features.round_keys_),
-                                  AES_256_KEY_SIZE_INT * sizeof(Data32));
-                RNGONGPU_CUDA_CHECK(cudaGetLastError());
-                break;
-            default:
-                throw std::runtime_error("Error: Unsupported security level!");
-        }
-
-        cudaMalloc(&features.d_nonce_, 4 * sizeof(Data32));
-        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+        cudaMemPoolProps pool_props = {};
+        pool_props.allocType = cudaMemAllocationTypePinned;
+        pool_props.location.type = cudaMemLocationTypeDevice;
+        pool_props.location.id = device;
+        RNGONGPU_CUDA_CHECK(
+            cudaMemPoolCreate(&features.scratch_pool_, &pool_props));
+        // Keep freed memory in the pool; returning it to the system at every
+        // synchronization would make each request map new memory.
+        Data64 release_threshold = UINT64_MAX;
+        RNGONGPU_CUDA_CHECK(cudaMemPoolSetAttribute(
+            features.scratch_pool_, cudaMemPoolAttrReleaseThreshold,
+            &release_threshold));
 
         update(features, seed_material);
         
@@ -137,16 +126,13 @@ namespace rngongpu
         RNGONGPU_CUDA_CHECK(cudaGetLastError());
         cudaMemcpy(features.SAES_d_, SAES, 256 * sizeof(Data8), cudaMemcpyHostToDevice);
         RNGONGPU_CUDA_CHECK(cudaGetLastError());
- 
-        std::vector<unsigned char> nonce_rev = features.nonce_;
-        std::reverse(nonce_rev.begin(), nonce_rev.end());
-        cudaMemcpy(features.d_nonce_, nonce_rev.data(), 4 * sizeof(Data32),
-                   cudaMemcpyHostToDevice);
-        RNGONGPU_CUDA_CHECK(cudaGetLastError());
     }
 
     __host__ void RNGTraits<Mode::AES>::clear(ModeFeature<Mode::AES>& features)
     {
+        // Requests do not wait for their streams, so their kernels may still
+        // use the tables and the pool.
+        RNGONGPU_CUDA_CHECK(cudaDeviceSynchronize());
         RNGONGPU_CUDA_CHECK(cudaFree(features.t0_));
         RNGONGPU_CUDA_CHECK(cudaFree(features.t1_));
         RNGONGPU_CUDA_CHECK(cudaFree(features.t2_));
@@ -158,8 +144,7 @@ namespace rngongpu
         RNGONGPU_CUDA_CHECK(cudaFree(features.t4_3_));
         RNGONGPU_CUDA_CHECK(cudaFree(features.rcon_));
         RNGONGPU_CUDA_CHECK(cudaFree(features.SAES_d_));
-        RNGONGPU_CUDA_CHECK(cudaFree(features.d_nonce_));
-        RNGONGPU_CUDA_CHECK(cudaFree(features.round_keys_));
+        RNGONGPU_CUDA_CHECK(cudaMemPoolDestroy(features.scratch_pool_));
     }
 
     __host__ const EVP_CIPHER*
@@ -317,28 +302,6 @@ namespace rngongpu
         features.key_.assign(temp.begin(), temp.begin() + features.key_len_);
         features.nonce_.assign(temp.begin() + features.key_len_,
                                temp.begin() + features.seed_len_);
-
-        switch (features.security_level_)
-        {
-            case SecurityLevel::AES128:
-                keyExpansion(features.key_, features.round_keys_, stream);
-                break;
-            case SecurityLevel::AES192:
-                keyExpansion192(features.key_, features.round_keys_, stream);
-                break;
-            case SecurityLevel::AES256:
-                keyExpansion256(features.key_, features.round_keys_, stream);
-                break;
-            default:
-                throw std::runtime_error("Error: Unsupported security "
-                                         "level in CTR_DRBG_Update!");
-        }
-
-        std::vector<unsigned char> nonce_rev = features.nonce_;
-        std::reverse(nonce_rev.begin(), nonce_rev.end());
-        cudaMemcpyAsync(features.d_nonce_, nonce_rev.data(), 4 * sizeof(Data32),
-                        cudaMemcpyHostToDevice, stream);
-        RNGONGPU_CUDA_CHECK(cudaGetLastError());
     }
 
     __host__ void
@@ -352,12 +315,6 @@ namespace rngongpu
             features.nonce_[i] = sum & 0xFF; // 0-255
             carry = sum >> 8; // remainder after div 256.
         }
-
-        std::vector<unsigned char> nonce_rev = features.nonce_;
-        std::reverse(nonce_rev.begin(), nonce_rev.end());
-        cudaMemcpyAsync(features.d_nonce_, nonce_rev.data(), 4 * sizeof(Data32),
-                        cudaMemcpyHostToDevice, stream);
-        RNGONGPU_CUDA_CHECK(cudaGetLastError());
     }
 
     __host__ void RNGTraits<Mode::AES>::gen_random_bytes(
@@ -389,6 +346,34 @@ namespace rngongpu
             }
         }
 
+        // Round keys and counter of this request, in stream order.
+        Data32* state;
+        RNGONGPU_CUDA_CHECK(cudaMallocFromPoolAsync(
+            &state, (AES_256_KEY_SIZE_INT + 4) * sizeof(Data32),
+            features.scratch_pool_, stream));
+        Data32* round_keys = state;
+        Data32* nonce = state + AES_256_KEY_SIZE_INT;
+        switch (features.security_level_)
+        {
+            case SecurityLevel::AES128:
+                keyExpansion(features.key_, round_keys, stream);
+                break;
+            case SecurityLevel::AES192:
+                keyExpansion192(features.key_, round_keys, stream);
+                break;
+            case SecurityLevel::AES256:
+                keyExpansion256(features.key_, round_keys, stream);
+                break;
+            default:
+                throw std::runtime_error("Error: Unsupported security "
+                                         "level in gen_random_bytes!");
+        }
+        std::vector<unsigned char> nonce_rev = features.nonce_;
+        std::reverse(nonce_rev.begin(), nonce_rev.end());
+        RNGONGPU_CUDA_CHECK(cudaMemcpyAsync(nonce, nonce_rev.data(),
+                                            4 * sizeof(Data32),
+                                            cudaMemcpyHostToDevice, stream));
+
         Data32 num_u64 =
             static_cast<Data32>((requested_number_of_bytes + 7) / 8);
 
@@ -402,7 +387,7 @@ namespace rngongpu
             case SecurityLevel::AES128:
                 counterWithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBoxCihangir<<<
                     features.num_blocks_, features.thread_per_block_, 0,
-                    stream>>>(features.d_nonce_, features.round_keys_,
+                    stream>>>(nonce, round_keys,
                               features.t0_, features.t4_, range,
                               features.SAES_d_, threadCount, pointer, num_u64);
                 RNGONGPU_CUDA_CHECK(cudaGetLastError());
@@ -410,7 +395,7 @@ namespace rngongpu
             case SecurityLevel::AES192:
                 counter192WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox<<<
                     features.num_blocks_, features.thread_per_block_, 0,
-                    stream>>>(features.d_nonce_, features.round_keys_,
+                    stream>>>(nonce, round_keys,
                               features.t0_, features.t4_, range, threadCount,
                               pointer, num_u64);
                 RNGONGPU_CUDA_CHECK(cudaGetLastError());
@@ -418,7 +403,7 @@ namespace rngongpu
             case SecurityLevel::AES256:
                 counter256WithOneTableExtendedSharedMemoryBytePermPartlyExtendedSBox<<<
                     features.num_blocks_, features.thread_per_block_, 0,
-                    stream>>>(features.d_nonce_, features.round_keys_,
+                    stream>>>(nonce, round_keys,
                               features.t0_, features.t4_, range, threadCount,
                               pointer, num_u64);
                 RNGONGPU_CUDA_CHECK(cudaGetLastError());
@@ -427,6 +412,8 @@ namespace rngongpu
                 throw std::runtime_error("Error: Unsupported security "
                                          "level in gen_random_bytes!");
         }
+
+        RNGONGPU_CUDA_CHECK(cudaFreeAsync(state, stream));
 
         increment_nonce(features, (num_u64 + 1) / 2, stream);
         update(features, additional_input_in, stream);
@@ -531,8 +518,6 @@ namespace rngongpu
         Data64 total_byte_count = static_cast<Data64>(size) * sizeof(T);
         gen_random_bytes(features, pointer64, total_byte_count, entropy_input,
                          additional_input, stream);
-
-        RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
     }
 
     template <typename T>
@@ -547,8 +532,6 @@ namespace rngongpu
         Data64 total_byte_count = static_cast<Data64>(size) * sizeof(T);
         gen_random_bytes(features, pointer64, total_byte_count, entropy_input,
                          additional_input, stream);
-
-        RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
 
         int total_thread = features.num_blocks_ * features.thread_per_block_;
         mod_reduce_kernel<<<features.num_blocks_, features.thread_per_block_, 0,
@@ -572,8 +555,6 @@ namespace rngongpu
         gen_random_bytes(features, pointer64, total_byte_count, entropy_input,
                          additional_input, stream);
 
-        RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
-
         int total_thread = features.num_blocks_ * features.thread_per_block_;
         mod_reduce_kernel<<<features.num_blocks_, features.thread_per_block_, 0,
                             stream>>>(pointer, modulus, log_size, mod_count,
@@ -597,8 +578,6 @@ namespace rngongpu
         gen_random_bytes(features, pointer64, total_byte_count, entropy_input,
                          additional_input, stream);
 
-        RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
-
         int total_thread = features.num_blocks_ * features.thread_per_block_;
         mod_reduce_kernel<<<features.num_blocks_, features.thread_per_block_, 0,
                             stream>>>(pointer, modulus, log_size, mod_count,
@@ -618,8 +597,8 @@ namespace rngongpu
 
         Data64* pointer64;
         Data64 total_byte_count = static_cast<Data64>(size) * sizeof(T);
-        cudaMallocAsync(&pointer64, total_byte_count, stream);
-        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+        RNGONGPU_CUDA_CHECK(cudaMallocFromPoolAsync(
+            &pointer64, total_byte_count, features.scratch_pool_, stream));
         gen_random_bytes(features, pointer64, total_byte_count, entropy_input,
                          additional_input, stream);
 
@@ -639,8 +618,7 @@ namespace rngongpu
         }
 
         RNGONGPU_CUDA_CHECK(cudaGetLastError());
-        RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
-        RNGONGPU_CUDA_CHECK(cudaFree(pointer64));
+        RNGONGPU_CUDA_CHECK(cudaFreeAsync(pointer64, stream));
     }
 
     template <typename T, typename U>
@@ -656,8 +634,6 @@ namespace rngongpu
         Data64 total_byte_count = static_cast<Data64>(size) * sizeof(T);
         gen_random_bytes(features, pointer64, total_byte_count, entropy_input,
                          additional_input, stream);
-
-        RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
 
         int total_thread = features.num_blocks_ * features.thread_per_block_;
         box_muller_kernel<<<features.num_blocks_, features.thread_per_block_, 0,
@@ -679,8 +655,8 @@ namespace rngongpu
         Data64 size = 1ULL << log_size;
         Data64 total_byte_count =
             static_cast<Data64>(size * repeat_count) * sizeof(T);
-        cudaMallocAsync(&pointer64, total_byte_count, stream);
-        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+        RNGONGPU_CUDA_CHECK(cudaMallocFromPoolAsync(
+            &pointer64, total_byte_count, features.scratch_pool_, stream));
         gen_random_bytes(features, pointer64, total_byte_count, entropy_input,
                          additional_input, stream);
 
@@ -692,8 +668,7 @@ namespace rngongpu
                                       log_size, mod_count, repeat_count,
                                       total_thread);
         RNGONGPU_CUDA_CHECK(cudaGetLastError());
-        RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
-        RNGONGPU_CUDA_CHECK(cudaFree(pointer64));
+        RNGONGPU_CUDA_CHECK(cudaFreeAsync(pointer64, stream));
     }
 
     template <typename T, typename U>
@@ -709,8 +684,8 @@ namespace rngongpu
         Data64 size = 1ULL << log_size;
         Data64 total_byte_count =
             static_cast<Data64>(size * repeat_count) * sizeof(T);
-        cudaMallocAsync(&pointer64, total_byte_count, stream);
-        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+        RNGONGPU_CUDA_CHECK(cudaMallocFromPoolAsync(
+            &pointer64, total_byte_count, features.scratch_pool_, stream));
         gen_random_bytes(features, pointer64, total_byte_count, entropy_input,
                          additional_input, stream);
 
@@ -721,8 +696,7 @@ namespace rngongpu
                                       log_size, mod_count, mod_index,
                                       repeat_count, total_thread);
         RNGONGPU_CUDA_CHECK(cudaGetLastError());
-        RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
-        RNGONGPU_CUDA_CHECK(cudaFree(pointer64));
+        RNGONGPU_CUDA_CHECK(cudaFreeAsync(pointer64, stream));
     }
 
     // --
@@ -739,8 +713,6 @@ namespace rngongpu
         Data64 total_byte_count = static_cast<Data64>(size) * sizeof(T);
         gen_random_bytes(features, pointer64, total_byte_count, entropy_input,
                          additional_input, stream);
-
-        RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
 
         int total_thread = features.num_blocks_ * features.thread_per_block_;
         ternary_number_kernel<<<features.num_blocks_,
@@ -762,8 +734,6 @@ namespace rngongpu
         gen_random_bytes(features, pointer64, total_byte_count, entropy_input,
                          additional_input, stream);
 
-        RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
-
         int total_thread = features.num_blocks_ * features.thread_per_block_;
         ternary_number_kernel<<<features.num_blocks_,
                                 features.thread_per_block_, 0, stream>>>(
@@ -784,8 +754,8 @@ namespace rngongpu
         Data64 size = 1ULL << log_size;
         Data64 total_byte_count =
             static_cast<Data64>(size * repeat_count) * sizeof(T);
-        cudaMallocAsync(&pointer64, total_byte_count, stream);
-        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+        RNGONGPU_CUDA_CHECK(cudaMallocFromPoolAsync(
+            &pointer64, total_byte_count, features.scratch_pool_, stream));
         gen_random_bytes(features, pointer64, total_byte_count, entropy_input,
                          additional_input, stream);
 
@@ -796,8 +766,7 @@ namespace rngongpu
             pointer_T, pointer, modulus, log_size, mod_count, repeat_count,
             total_thread);
         RNGONGPU_CUDA_CHECK(cudaGetLastError());
-        RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
-        RNGONGPU_CUDA_CHECK(cudaFree(pointer64));
+        RNGONGPU_CUDA_CHECK(cudaFreeAsync(pointer64, stream));
     }
 
     template <typename T>
@@ -813,8 +782,8 @@ namespace rngongpu
         Data64 size = 1ULL << log_size;
         Data64 total_byte_count =
             static_cast<Data64>(size * repeat_count) * sizeof(T);
-        cudaMallocAsync(&pointer64, total_byte_count, stream);
-        RNGONGPU_CUDA_CHECK(cudaGetLastError());
+        RNGONGPU_CUDA_CHECK(cudaMallocFromPoolAsync(
+            &pointer64, total_byte_count, features.scratch_pool_, stream));
         gen_random_bytes(features, pointer64, total_byte_count, entropy_input,
                          additional_input, stream);
 
@@ -825,8 +794,7 @@ namespace rngongpu
             pointer_T, pointer, modulus, log_size, mod_count, mod_index,
             repeat_count, total_thread);
         RNGONGPU_CUDA_CHECK(cudaGetLastError());
-        RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
-        RNGONGPU_CUDA_CHECK(cudaFree(pointer64));
+        RNGONGPU_CUDA_CHECK(cudaFreeAsync(pointer64, stream));
     }
 
     ///////////////////////////////////////////////////////////////////////
@@ -908,14 +876,6 @@ namespace rngongpu
         (*this).nonce_ = std::vector<unsigned char>((*this).nonce_len_, 0);
 
         RNGTraits<Mode::AES>::update(*this, seed_material, stream);
-
-        std::vector<unsigned char> nonce_rev = (*this).nonce_;
-        std::reverse(nonce_rev.begin(), nonce_rev.end());
-        cudaMemcpyAsync((*this).d_nonce_, nonce_rev.data(), 4 * sizeof(Data32),
-                        cudaMemcpyHostToDevice, stream);
-        RNGONGPU_CUDA_CHECK(cudaGetLastError());
-
-        RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
     }
 
     void
@@ -926,7 +886,6 @@ namespace rngongpu
         std::lock_guard<std::mutex> lock((*this).mutex_);
         RNGTraits<Mode::AES>::reseed(*this, entropy_input, additional_input,
                                      stream);
-        RNGONGPU_CUDA_CHECK(cudaStreamSynchronize(stream));
     }
 
     template <typename T>

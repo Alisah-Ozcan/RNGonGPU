@@ -88,6 +88,10 @@ $ ./build/bin/example/<...>
 $ Example: ./build/bin/example/aes_drng_example
 ```
 
+## Streams and threads
+
+AES generation functions are asynchronous: they enqueue the work on the given stream and return without waiting for the GPU, and the numbers are ready in stream order. Synchronize the stream before reading the output on the host or using it on another stream. One `RNG<Mode::AES>` object can be shared by several threads and streams; requests are serialized on the host and each one uses its own counter range, so requests on different streams run concurrently on the GPU.
+
 ## [Tests](/test/README.md)
 
 To run tests:
