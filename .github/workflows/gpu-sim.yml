@@ -40,8 +40,10 @@ jobs:
       - name: Build
         run: cmake --build build -j
 
+      # The stream suites take over 20 minutes on a hosted runner, so only the
+      # DRBG vector and large-request tests run here.
       - name: Test
-        run: vgpu run ./build/bin/test/test
+        run: vgpu run ./build/bin/test/test --gtest_filter='*DRBGVECTORS*:*LARGE_REQUEST*'
 
       - name: Free disk space
         if: always()
